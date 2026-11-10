@@ -81,3 +81,34 @@ python tools/disasm.py --force
 ```
 
 Para Contra existe un desensamblado comunitario muy documentado, [vermiceli/nes-contra-us](https://github.com/vermiceli/nes-contra-us). Sirve de referencia para saber qué hace cada rutina y qué significa cada variable de RAM.
+
+## Web (fase 1: juego local)
+
+Estructura en `web/` (ver [docs/arquitectura.md](docs/arquitectura.md)):
+
+| Ruta | Qué es |
+|---|---|
+| `web/index.html`, `main.js`, `style.css` | La página y el bucle de juego (60,0988 fps fijos) |
+| `web/config.js` | URL de la carpeta con `manifest.json` (desarrollo: `./rom-dev/`) |
+| `web/rom/loader.js` | Descarga, verificación SHA-1 y caché en IndexedDB |
+| `web/emu/core.js` | Núcleo del emulador; lo usan la web y las pruebas (`tests/`) |
+| `web/emu/jsnes/` | Fork de jsnes 2.1.0 (Apache-2.0); los cambios se anotan en `FORK.md` |
+| `web/ui/` | Pantalla, audio (AudioWorklet), teclado, mandos y táctil |
+
+Probar en local:
+```
+python tools/build.py
+python tools/release.py 0.0.1
+python -m http.server 8080 --directory web
+```
+y abrir http://localhost:8080.
+
+Publicar la ROM en Azure Blob (requiere `az login`):
+```
+python tools/release.py 0.1.0 --upload --account MI_CUENTA --container roms
+```
+Después, en `web/config.js`, poner `ROM_BASE_URL` a `https://MI_CUENTA.blob.core.windows.net/roms/`, o abrir la página con `?rom=<esa URL>`.
+
+`web/rom-dev/` contiene la ROM: **no la subas** con la web; la ROM se sirve desde el blob.
+
+Controles: jugador 1 con W A S D, J (disparar) y K (saltar), G (Select) y H o Enter (Start). Jugador 2 con flechas, coma, punto, M y guion. Mandos: el primero es el jugador 1. En móvil aparecen controles táctiles.

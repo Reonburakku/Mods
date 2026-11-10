@@ -1,0 +1,15 @@
+{
+  "name": "contra-4p",
+  "version": "1.0.0",
+  "description": "Contra para 4 jugadores en la web",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build:rom": "python tools/build.py",
+    "test": "node --no-warnings tests/determinism.mjs",
+    "test:smoke": "node --no-warnings tests/smoke.mjs"
+  },
+  "type": "module",
+  "private": true
+}

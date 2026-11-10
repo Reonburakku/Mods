@@ -1,0 +1,12 @@
+# Generados
+node_modules/
+tests/out/
+__pycache__/
+*.pyc
+
+# Copia de la ROM para pruebas locales de la web (se genera con tools/release.py)
+web/rom-dev/
+
+# Configuración local de Claude Code (excepto la de lanzamiento del servidor)
+.claude/*
+!.claude/launch.json
