@@ -12,7 +12,7 @@ export const ROM_BASE_URL = params.get("rom") ?? (IS_LOCAL ? "./rom-dev/" : "htt
 // Manifiesto de la versión publicada (el blob no tiene manifest.json): si es null, se
 // descarga ROM_BASE_URL + "manifest.json". Al publicar otra versión, actualizar aquí.
 export const ROM_MANIFEST = params.has("rom") || IS_LOCAL ? null : {
-  version: "0.3.0",
+  version: "1.0.0",
   file: "contra4p-0.1.11.nes",
   sha1: "2b24903bf74cc5dee9ca885e168f24a93a182c6d",
   size: 262160,
