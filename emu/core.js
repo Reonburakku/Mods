@@ -29,8 +29,10 @@ export class Core {
    *   overclock: líneas extra de VBlank por fotograma (0 = NES real). Da más tiempo de
    *   CPU por fotograma y evita ralentizaciones. Forma parte de la simulación: todos los
    *   dispositivos de una partida en red deben usar el mismo valor.
+   *   spriteLimit: límite real de 8 sprites por línea (parpadeo). Por defecto desactivado;
+   *   solo cambia la imagen, no la simulación (cada dispositivo puede elegir).
    */
-  constructor(rom, { sampleRate = 48000, onAudio = null, fourScore = true, overclock = 0 } = {}) {
+  constructor(rom, { sampleRate = 48000, onAudio = null, fourScore = true, overclock = 0, spriteLimit = false } = {}) {
     /** Imagen del último fotograma: 0xBBGGRR por píxel. */
     this.frameBuffer = new Uint32Array(WIDTH * HEIGHT);
     this.nes = new NES({
@@ -43,6 +45,8 @@ export class Core {
     this.nes.loadROM(rom);
     this.overclock = overclock | 0;
     this.nes.setOverclock(this.overclock);
+    this.spriteLimit = spriteLimit;
+    this.nes.setSpriteLimit(spriteLimit);
     this.frameCount = 0;
   }
 
@@ -57,7 +61,11 @@ export class Core {
     this.frameCount++;
   }
 
-  reset() { this.nes.reset(); this.nes.setOverclock(this.overclock); }
+  reset() {
+    this.nes.reset();
+    this.nes.setOverclock(this.overclock);
+    this.nes.setSpriteLimit(this.spriteLimit);
+  }
 
   /** RAM de la CPU (lectura): 0x0000-0x07FF interna, 0x6000-0x7FFF extra. */
   get mem() { return this.nes.cpu.mem; }

@@ -130,6 +130,22 @@ class PPU {
     // sprites to appear on NES scanline 0.
     // See https://www.nesdev.org/wiki/PPU_sprite_evaluation
     this.secondaryOAM = new Uint8Array(32);
+    // [fork] Paletas extra de sprites (extensión cosmética, no existe en la NES):
+    // spriteExt[n] = paleta extra (1-15) del sprite n del OAM, o 0 = normal.
+    // La ROM la escribe en $5000-$503F (sin uso en UNROM; en una NES real se
+    // ignora) y se copia aquí junto con la DMA de OAM. Colores: $5040 + 4*k + 1..3.
+    this.spriteExt = new Uint8Array(64);
+    this.secondaryOAMIndex = new Uint8Array(8);
+    this.scanlineSpriteIndex = new Uint8Array(241 * 8);
+    this.extPalette = new Uint32Array(4);
+    // [fork] Sin límite de 8 sprites por línea (solo afecta a la imagen): además de la
+    // evaluación del hardware (que sigue decidiendo los flags que lee la CPU), se
+    // recogen TODOS los sprites de cada línea para dibujarlos.
+    this.noSpriteLimit = false;
+    this.scanlineAllValid = new Uint8Array(241);
+    this.scanlineAllCount = new Uint8Array(241);
+    this.scanlineAllOAM = new Uint8Array(241 * 64 * 4);
+    this.scanlineAllIndex = new Uint8Array(241 * 64);
     this.secondaryOAM.fill(0xff); // $FF = no valid sprites (matches hardware clear)
     // How many sprites were found during the last evaluation (0-8).
     this.spritesFound = 0;
@@ -476,6 +492,8 @@ class PPU {
           // Buffer row 0 is the pre-render dummy row (no sprites).
           this.scanlineSpriteCount[0] = 0;
           this.scanlineSprite0[0] = 0;
+          this.scanlineAllValid[0] = 0; // [fork]
+          this.scanlineAllValid[1] = 0;
           for (let i = 0; i < 32; i++) {
             this.scanlineSecondaryOAM[i] = 0xff;
           }
@@ -490,6 +508,7 @@ class PPU {
             this.scanlineSecondaryOAM[scanline0Base + i] = this.secondaryOAM[i];
           }
           this.scanlineSpriteCount[1] = this.spritesFound;
+          this.scanlineSpriteIndex.set(this.secondaryOAMIndex, 1 * 8); // [fork]
           this.scanlineSprite0[1] = this.sprite0InSecondary ? 1 : 0;
 
           // OAMADDR is reset to 0 during sprite tile loading (cycles 257-320).
@@ -1125,6 +1144,10 @@ class PPU {
       this.spriteMem[oamAddr] = data;
       this.spriteRamWriteUpdate(oamAddr, data);
     }
+    // [fork] paletas extra: la tabla $5000-$503F acompaña a esta copia del OAM
+    for (let i = 0; i < 64; i++) {
+      this.spriteExt[((this.sramAddress >> 2) + i) & 63] = this.nes.cpu.mem[0x5000 + i] & 15;
+    }
 
     // OAM DMA takes 513 CPU cycles (1 wait + 256 read/write pairs), plus
     // an extra alignment cycle if the CPU is on an odd cycle (a "put" cycle).
@@ -1621,6 +1644,7 @@ class PPU {
             this.scanlineSecondaryOAM[oamBase + secondaryIndex + b] =
               this.spriteMem[(n * 4 + m + b) & 0xff];
           }
+          this.scanlineSpriteIndex[targetScanline * 8 + spritesFound] = n; // [fork]
           // The first sprite in evaluation order (at OAMADDR/4) is the one
           // that triggers sprite 0 hit, regardless of its OAM index.
           // On real hardware, setting OAMADDR to a non-zero value causes
@@ -1664,8 +1688,31 @@ class PPU {
     for (let i = 0; i < 32; i++) {
       this.secondaryOAM[i] = this.scanlineSecondaryOAM[oamBase + i];
     }
+    for (let i = 0; i < 8; i++) {
+      this.secondaryOAMIndex[i] = this.scanlineSpriteIndex[targetScanline * 8 + i]; // [fork]
+    }
     this.spritesFound = spritesFound;
     this.sprite0InSecondary = this.scanlineSprite0[targetScanline] === 1;
+
+    // [fork] lista completa para dibujar sin límite (no toca nada que vea la CPU)
+    if (this.noSpriteLimit) {
+      let all = 0;
+      let base = targetScanline * 64;
+      for (let n = 0; n < 64; n++) {
+        let y = this.spriteMem[n * 4];
+        if (targetScanline > y && targetScanline <= y + spriteHeight) {
+          let o = (base + all) * 4;
+          this.scanlineAllOAM[o] = y;
+          this.scanlineAllOAM[o + 1] = this.spriteMem[n * 4 + 1];
+          this.scanlineAllOAM[o + 2] = this.spriteMem[n * 4 + 2];
+          this.scanlineAllOAM[o + 3] = this.spriteMem[n * 4 + 3];
+          this.scanlineAllIndex[base + all] = n;
+          all++;
+        }
+      }
+      this.scanlineAllCount[targetScanline] = all;
+      this.scanlineAllValid[targetScanline] = 1;
+    }
 
     // OAMADDR is set to 0 during sprite tile loading (cycles 257-320).
     // On real hardware this happens at the start of HBlank.
@@ -1694,21 +1741,36 @@ class PPU {
     for (let scan = startscan; scan < startscan + scancount; scan++) {
       if (scan < 0 || scan >= 240) continue;
 
-      let count = this.scanlineSpriteCount[scan];
-      let oamBase = scan * 32;
+      // [fork] sin límite de sprites: usar la lista completa de la línea
+      let useAll = this.noSpriteLimit && this.scanlineAllValid[scan] === 1;
+      let count = useAll ? this.scanlineAllCount[scan] : this.scanlineSpriteCount[scan];
+      let src = useAll ? this.scanlineAllOAM : this.scanlineSecondaryOAM;
+      let oamBase = useAll ? scan * 256 : scan * 32;
 
       for (let i = 0; i < count; i++) {
-        let sprY = this.scanlineSecondaryOAM[oamBase + i * 4 + 0];
-        let sprTile = this.scanlineSecondaryOAM[oamBase + i * 4 + 1];
-        let sprAttr = this.scanlineSecondaryOAM[oamBase + i * 4 + 2];
-        let sprX = this.scanlineSecondaryOAM[oamBase + i * 4 + 3];
+        let sprY = src[oamBase + i * 4 + 0];
+        let sprTile = src[oamBase + i * 4 + 1];
+        let sprAttr = src[oamBase + i * 4 + 2];
+        let sprX = src[oamBase + i * 4 + 3];
 
         let vertFlip = (sprAttr >> 7) & 1;
         let horiFlip = (sprAttr >> 6) & 1;
         let priority = (sprAttr >> 5) & 1;
         let palAdd = (sprAttr & 3) << 2;
+        let pal = sprPalette;
 
         if (priority !== bgPri) continue;
+        // [fork] paleta extra para este sprite del OAM
+        let ext = this.spriteExt[
+          useAll ? this.scanlineAllIndex[scan * 64 + i] : this.scanlineSpriteIndex[scan * 8 + i]
+        ];
+        if (ext !== 0) {
+          pal = this.extPalette;
+          let mem = this.nes.cpu.mem;
+          pal[0] = sprPalette[0];
+          for (let c = 1; c < 4; c++) pal[c] = this.palTable.getEntry(mem[0x5040 + ext * 4 + c] & 63);
+          palAdd = 0;
+        }
         if (this.f_spriteSize === 0) {
           // 8x8 sprites
           let tileIndex = this.f_spPatternTable === 0 ? sprTile : sprTile + 256;
@@ -1728,7 +1790,7 @@ class PPU {
             sprX,
             dy,
             palAdd,
-            sprPalette,
+            pal,
             horiFlip,
             vertFlip,
             i, // priority: lower index in secondary OAM = higher priority
@@ -1767,7 +1829,7 @@ class PPU {
             sprX,
             dy + (fineY < 8 ? 0 : 8),
             palAdd,
-            sprPalette,
+            pal,
             horiFlip,
             vertFlip,
             i,
@@ -2251,6 +2313,7 @@ class PPU {
     "vblankPending",
     "dummyCycleToggle",
     "extraVblankLines",
+    "spriteExt",
     "extraLinesLeft",
     "validTileData",
     "scanlineAlreadyRendered",
