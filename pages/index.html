@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mods</title>
+<style>
+  :root { --bg: #f4f4f2; --fg: #1d1d1b; --muted: #6b6b66; --card: #ffffff; --line: #ddddd8; --accent: #c0392b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #ececea; --muted: #9a9a94; --card: #1f1f1d; --line: #33332f; --accent: #e8604f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 16px; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  p.lead { margin: 0 0 32px; color: var(--muted); }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  a.game { display: block; padding: 16px 20px; background: var(--card); border: 1px solid var(--line);
+           border-radius: 10px; color: inherit; text-decoration: none; }
+  a.game:hover, a.game:focus-visible { border-color: var(--accent); }
+  a.game strong { display: block; font-size: 18px; }
+  a.game span { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mods</h1>
+  <p class="lead">Juegos modificados que se juegan en el navegador.</p>
+  <ul>
+    <!-- Un <li> por juego; cada uno vive en su propia carpeta de gh-pages -->
+    <li><a class="game" href="Contra4P/"><strong>Contra 4P</strong><span>Contra para 4 jugadores, en red y hasta 2 por dispositivo.</span></a></li>
+  </ul>
+</main>
+</body>
+</html>
