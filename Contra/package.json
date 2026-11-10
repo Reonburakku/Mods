@@ -7,9 +7,13 @@
   },
   "scripts": {
     "build:rom": "python tools/build.py",
-    "test": "node --no-warnings tests/determinism.mjs",
-    "test:smoke": "node --no-warnings tests/smoke.mjs"
+    "test": "node --no-warnings tests/determinism.mjs && node --no-warnings tests/netplay.mjs",
+    "test:smoke": "node --no-warnings tests/smoke.mjs",
+    "test:net": "node --no-warnings tests/netplay.mjs"
   },
   "type": "module",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "trystero": "0.26.0"
+  }
 }

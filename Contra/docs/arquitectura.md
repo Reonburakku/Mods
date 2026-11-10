@@ -167,7 +167,14 @@ Cada fase deja algo jugable.
 
 0. **Base de pruebas.** Emulador en Node, Contra arranca, partida grabada (entradas) reproducible y siempre con el mismo hash de RAM.
 1. **Web local.** Descargar la ROM desde Azure Blob (con caché), jugar 1-2 jugadores en un dispositivo (teclado, mando y táctil).
-2. **Netplay con el Contra original.** 2 dispositivos con 1 jugador cada uno. Valida toda la parte de red con un juego que ya funciona, antes de tocar la ROM.
+2. **Netplay con el Contra original.** 2 dispositivos con 1 jugador cada uno. Valida toda la parte de red con un juego que ya funciona, antes de tocar la ROM. ✅ Hecha:
+   - `web/net/lockstep.js`: retardo de entrada y reenvío hasta confirmación. Funciona igual con un canal fiable o no.
+   - `web/net/session.js`: sala con Trystero/Nostr. El anfitrión reparte las plazas y elige el retardo con `recommendedDelay()` a partir del ping (mediana y percentil 90).
+   - `tests/netplay.mjs`: red simulada (retardo, jitter, pérdidas, relojes desfasados) con 2-4 dispositivos. La RAM es idéntica en todos los casos y el juego va a ~100% de velocidad.
+   - Probada con dos pestañas del navegador: los dos dispositivos van a 60 fps sin desincronizaciones.
+   - Requiere `https://` o `localhost`: Trystero usa `crypto.subtle`.
+   - Con la pestaña oculta, un Worker mantiene el bucle para no bloquear a los demás.
+   - Pendiente para la fase 5: recuperación tras desincronización o desconexión (ahora solo se avisa).
 3. **ROM para 4 jugadores**, probada en local con 4 mandos simulados en las pruebas de Node.
 4. **Netplay a 4:** 2 dispositivos con 2 jugadores o 4 dispositivos con 1.
 5. **Pulido:** rollback, unirse a mitad de partida, reconexión y móviles.

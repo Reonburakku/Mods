@@ -16,8 +16,40 @@
         <h1>CONTRA <span>4P</span></h1>
         <p id="status" role="status">Cargando…</p>
         <div id="progress" class="progress" hidden><div></div></div>
-        <button id="play" class="big" hidden>Jugar</button>
         <p id="error" class="error" hidden></p>
+
+        <section id="scr-menu" class="screen" hidden>
+          <button id="play-local" class="big">Jugar en este dispositivo</button>
+          <div class="row">
+            <button id="net-create">Crear partida en red</button>
+          </div>
+          <form id="join-form" class="row">
+            <input id="join-code" placeholder="Código de sala" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Código de sala">
+            <button>Unirse</button>
+          </form>
+        </section>
+
+        <section id="scr-lobby" class="screen" hidden>
+          <p class="room">Sala <strong id="lobby-code"></strong>
+            <button id="copy-link" class="small">Copiar enlace</button></p>
+          <div class="row">
+            <label>Nombre <input id="my-name" maxlength="16" autocomplete="nickname"></label>
+            <label>Jugadores aquí
+              <select id="my-local"><option value="1">1</option><option value="2">2</option></select>
+            </label>
+          </div>
+          <ul id="lobby-list" class="lobby-list"></ul>
+          <p id="lobby-msg" class="muted"></p>
+          <div class="row">
+            <button id="lobby-start" class="big" hidden>Empezar</button>
+            <button id="lobby-leave">Salir</button>
+          </div>
+        </section>
+      </div>
+
+      <div id="wait" class="wait" hidden>
+        <p id="wait-msg"></p>
+        <button id="wait-leave" hidden>Salir</button>
       </div>
     </div>
 

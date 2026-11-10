@@ -8,7 +8,7 @@ Uso:
 
 Genera:
   contra4p-<versión>.nes   la ROM (build/contra.nes); nombre con versión = inmutable
-  manifest.json            {"version", "file", "sha1", "size"}
+  manifest.json            {"version", "file", "sha1", "size", "players"}
 
 Al subir, primero va la ROM y después el manifiesto, para que nadie reciba un
 manifiesto que apunte a un archivo que aún no existe.
@@ -30,6 +30,7 @@ def main():
     ap.add_argument("version", help="versión, p. ej. 0.1.0")
     ap.add_argument("--rom", default=os.path.join(ROOT, "build", "contra.nes"))
     ap.add_argument("--out", default=os.path.join(ROOT, "web", "rom-dev"))
+    ap.add_argument("--players", type=int, default=2, help="jugadores que admite la ROM (2 original, 4 modificada)")
     ap.add_argument("--upload", action="store_true", help="subir a Azure Blob Storage con la CLI 'az'")
     ap.add_argument("--account", help="cuenta de almacenamiento de Azure")
     ap.add_argument("--container", default="roms")
@@ -47,6 +48,7 @@ def main():
         "file": name,
         "sha1": hashlib.sha1(rom).hexdigest(),
         "size": len(rom),
+        "players": args.players,
     }
     os.makedirs(args.out, exist_ok=True)
     rom_out = os.path.join(args.out, name)

@@ -111,4 +111,6 @@ Después, en `web/config.js`, poner `ROM_BASE_URL` a `https://MI_CUENTA.blob.cor
 
 `web/rom-dev/` contiene la ROM: **no la subas** con la web; la ROM se sirve desde el blob.
 
+Juego en red: en el menú, "Crear partida en red" genera un código de sala y un enlace para compartir. Los demás se unen con el código o abriendo el enlace, y el anfitrión pulsa "Empezar". Necesita `https://` o `localhost` (no funciona por `http://<IP>`). Las pruebas de red se ejecutan con `npm run test:net`.
+
 Controles: jugador 1 con W A S D, J (disparar) y K (saltar), G (Select) y H o Enter (Start). Jugador 2 con flechas, coma, punto, M y guion. Mandos: el primero es el jugador 1. En móvil aparecen controles táctiles.
