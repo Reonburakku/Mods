@@ -6,7 +6,7 @@
 // - Durante la partida solo viajan los mensajes de Lockstep ("in" y "h").
 import { joinRoom, selfId } from "./vendor/trystero-nostr/index.mjs";
 import { Lockstep, recommendedDelay } from "./lockstep.js";
-import { TURN_SERVERS, LOCAL_LOOPBACK } from "../config.js";
+import { LOCAL_LOOPBACK, FORCE_RELAY } from "../config.js";
 
 const APP_ID = "contra4p-netplay-v1";
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // sin O/0, I/1
@@ -29,10 +29,11 @@ export function netplaySupported() {
   return null;
 }
 
-function connectionHelp(error) {
+function connectionHelp(error, hasTurn) {
   if (/after exchanging SDP/.test(error)) {
     return "No se pudo establecer la conexión directa entre los dos navegadores. " +
-      "Prueba sin VPN, en otra red, o configura un servidor TURN (?turn=turn:host:3478|usuario|clave).";
+      "Prueba sin VPN o en otra red" +
+      (hasTurn ? "." : ", o configura un servidor TURN (?turn=turn:host:3478|usuario|clave).");
   }
   return `No se pudo entrar en la sala: ${error}`;
 }
@@ -44,8 +45,9 @@ export class NetSession {
    * @param {boolean} o.host      true si este dispositivo la crea
    * @param {{name: string, local: number, sha1: string, version: string}} o.me
    * @param {number} o.maxPlayers plazas que admite la ROM (2 el Contra original, 4 la modificada)
+   * @param {RTCIceServer[]} o.turn servidores TURN (ver loadTurnServers en config.js)
    */
-  constructor({ code, host, me, maxPlayers, overclock = 0 }) {
+  constructor({ code, host, me, maxPlayers, overclock = 0, turn = [] }) {
     this.code = code;
     this.isHost = host;
     this.me = { ...me };
@@ -67,11 +69,12 @@ export class NetSession {
     this.room = joinRoom({
       appId: APP_ID,
       password: code,
-      turnConfig: TURN_SERVERS,
+      turnConfig: turn,
+      rtcConfig: FORCE_RELAY ? { iceTransportPolicy: "relay" } : undefined,
       // opción interna de Trystero 0.26 (vendor fijado): candidatos "*.local" -> 127.0.0.1
       _test_only_mdnsHostFallbackToLoopback: LOCAL_LOOPBACK,
     }, code, {
-      onJoinError: (e) => this.onError(connectionHelp(e.error)),
+      onJoinError: (e) => this.onError(connectionHelp(e.error, turn.length > 0)),
     });
     this.ctl = this.room.makeAction("ctl");
     this.net = this.room.makeAction("game");

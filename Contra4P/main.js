@@ -1,5 +1,5 @@
 // Página principal: carga de la ROM, menú, sala de juego en red y bucle de juego.
-import { ROM_BASE_URL, ROM_MANIFEST, OVERCLOCK_OVERRIDE } from "./config.js";
+import { ROM_BASE_URL, ROM_MANIFEST, OVERCLOCK_OVERRIDE, loadTurnServers } from "./config.js";
 import { loadRom } from "./rom/loader.js";
 import { Core, FPS } from "./emu/core.js";
 import { Screen } from "./ui/screen.js";
@@ -120,11 +120,14 @@ async function openRoom(code, host) {
   if (code.length < 4) { fail("El código de sala no es válido."); return; }
   ui.myName.value = store.get("contra4p.name", "Jugador");
   ui.myLocal.value = "1";
+  ui.status.textContent = "Preparando la conexión…";
+  const turn = await loadTurnServers();
   session = new net.NetSession({
     code, host,
     me: { name: ui.myName.value, local: 1, sha1: rom.manifest.sha1, version: rom.manifest.version },
     maxPlayers: rom.manifest.players ?? 2,
     overclock: chosenOverclock(),
+    turn,
   });
   session.onLobby = renderLobby;
   session.onError = (msg) => { fail(msg); };

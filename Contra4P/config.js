@@ -31,6 +31,46 @@ export const TURN_SERVERS = (() => {
   return [{ urls, username, credential }];
 })();
 
+// Servidores TURN de Metered (metered.ca, plan gratuito): credencial de la app
+// "reonburakku", copiada del panel (TURN Server -> Credentials). Es una credencial
+// solo de TURN: queda visible en la página, como en cualquier web con TURN.
+const METERED_USER = "18a6c0930c436afadd9ad7ae";
+const METERED_PASS = "TEQm6HqxJEUiwLCf";   // contraseña de la credencial (vacía = sin TURN)
+const METERED_ICE = METERED_PASS ? [
+  { urls: "stun:stun.relay.metered.ca:80" },
+  ...["turn:global.relay.metered.ca:80", "turn:global.relay.metered.ca:80?transport=tcp",
+    "turn:global.relay.metered.ca:443", "turns:global.relay.metered.ca:443?transport=tcp"]
+    .map((urls) => ({ urls, username: METERED_USER, credential: METERED_PASS })),
+] : [];
+
+// Alternativa: dirección de una API que devuelva la lista de servidores con
+// credenciales temporales (p. ej. https://<app>.metered.live/api/v1/turn/credentials?apiKey=<clave>
+// con la clave de una credencial, nunca la clave secreta de la cuenta). Vacío = no se usa.
+export const TURN_API_URL = "";
+
+// Diagnóstico: ?relay=1 obliga a que todo el tráfico pase por el servidor TURN
+// (como si la conexión directa no fuera posible).
+export const FORCE_RELAY = params.get("relay") === "1";
+
+/** Servidores TURN para la sesión: ?turn=, los de METERED_ICE o los de TURN_API_URL. Nunca falla: sin TURN, []. */
+export async function loadTurnServers() {
+  if (TURN_SERVERS.length) return TURN_SERVERS;
+  if (!TURN_API_URL) return METERED_ICE;
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 5000);
+    const res = await fetch(TURN_API_URL, { signal: ctl.signal, cache: "no-store" });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const list = await res.json();
+    if (!Array.isArray(list)) throw new Error("respuesta inesperada");
+    return list.filter((s) => s && s.urls);
+  } catch (e) {
+    console.warn("No se pudieron obtener los servidores TURN; se intenta la conexión directa:", e);
+    return [];
+  }
+}
+
 // En pruebas locales (dos pestañas en el mismo equipo) el navegador oculta la IP
 // local con un nombre "xxxx.local" (mDNS) que Windows a menudo no resuelve.
 // Con la página en localhost esos nombres se sustituyen por 127.0.0.1.
