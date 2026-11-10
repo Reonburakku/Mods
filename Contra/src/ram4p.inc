@@ -51,3 +51,8 @@ ExtStart      = $607B     ; temporales de MarkExtPal (banco 1)
 ExtCount      = $607C
 ExtPal        = $607D
 Joined34      = $607E     ; [2] J3/J4 ya entraron con START en esta partida (solo una vez)
+
+; --- puntos de J3/J4 (Score4P en fixed.asm) ---
+Score34       = $6080     ; [4] puntos J3 (2 bytes), J4 (2 bytes); como $07E2: unidades de 100
+Thresh34      = $6084     ; [4] siguiente vida extra de J3/J4 (como $3C-$3F)
+ScoreTmp      = $6088     ; jugador real (0-3) en Score4P

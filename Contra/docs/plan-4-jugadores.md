@@ -53,8 +53,12 @@ El juego se ejecutará en nuestro emulador web (ver [arquitectura.md](arquitectu
      - En la base no hay desplazamiento. J3/J4 aparecen 24 píxeles a los lados de J1/J2 (`SpawnX4P`) para no taparse.
      - Para probar un nivel concreto, las pruebas mantienen `$30` (nivel) durante la presentación.
 
+   - **Puntos** (0.1.8):
+     - Las balas de J3/J4 llevan dueño 2/3 (`BulletOwner4P`, banco 6).
+     - `Score4P` (entradas de `L_C4A0`/`L_C4A8`) suma los de J3/J4 en `Score34`, con su vida extra (`Thresh34`) y el récord.
+     - La web muestra los 4 marcadores debajo de la pantalla, porque el marcador del juego solo tiene sitio para 1P/2P.
+
    **Pendiente**:
-   - Sus puntos se atribuyen a J1/J2 (el dueño de la bala es el índice 0/1).
    - El robo de vidas (A tras game over) solo funciona dentro de cada pareja.
 5. **Bucles de jugadores de 0-1 a 0-3** y máscaras de jugadores vivos de 4 bits.
 6. **Jugadores 3 y 4 en pantalla:** reparto de los 64 sprites de OAM, paletas compartidas (solo hay 4 paletas de sprites), balas y colisiones.

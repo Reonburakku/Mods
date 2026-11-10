@@ -163,6 +163,31 @@ console.log(`      X J1 ${c.ram(0x334)}, J2 ${c.ram(0x335)}, J3 ${ctx(Ctx_X, 0)}
   g.screenshot("tests/out/4p-continuar.png");
 }
 
+// Puntos: van a quien dispara. Todos avanzan (si no, el compañero en el borde frena la
+// pantalla y no llegan enemigos) y solo uno dispara. J3/J4 tienen marcador propio
+// (Score34 $6080/$6082); recoger armas también da puntos, por eso se compara con margen.
+{
+  const score = (g) => [0x7e2, 0x7e4, 0x6080, 0x6082].map((a) => g.ram(a) | g.ram(a + 1) << 8);
+  const results = [];
+  for (const shooter of [0, 2, 3]) {
+    const g = new TestConsole("build/contra.nes");
+    g.core.nes.setOverclock(60); g.core.overclock = 60;
+    g.run(240); g.press(0, BTN.START, 4, 60); g.press(0, BTN.SELECT, 4, 20); g.press(0, BTN.START, 4, 600);
+    g.run(4, [0, 0, BTN.START, BTN.START]); g.run(120);
+    for (let i = 0; i < 3000; i++) {
+      const move = (i % 240) < 160 ? BTN.RIGHT : 0;
+      const inp = [move, move, move, move];
+      inp[shooter] |= i & 4 ? BTN.B : 0;
+      g.frame(inp);
+    }
+    const sc = score(g);
+    results.push(`J${shooter + 1} dispara: ${sc.join(", ")}`);
+    const others = sc.filter((_, k) => k !== shooter);
+    check(sc[shooter] > Math.max(...others), `los puntos de J${shooter + 1} van a su marcador`);
+  }
+  console.log(`      puntos J1-J4 (x100): ${results.join(" · ")}`);
+}
+
 // Empezar en otro nivel (Contra no tiene selector): se mantiene $30 durante la presentación
 function startAtStage(stage) {
   const g = new TestConsole("build/contra.nes");

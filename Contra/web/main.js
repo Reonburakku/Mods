@@ -15,7 +15,7 @@ const ui = {
   lobbyCode: $("lobby-code"), copyLink: $("copy-link"), myName: $("my-name"), myLocal: $("my-local"),
   lobbyList: $("lobby-list"), lobbyMsg: $("lobby-msg"), lobbyStart: $("lobby-start"), lobbyLeave: $("lobby-leave"),
   wait: $("wait"), waitMsg: $("wait-msg"), waitLeave: $("wait-leave"), hint: $("hint"),
-  info: $("info"), touch: $("touch"), help: $("help"),
+  info: $("info"), touch: $("touch"), help: $("help"), scores: $("scores"),
   mute: $("btn-mute"), helpBtn: $("btn-help"), fullscreen: $("btn-fullscreen"),
 };
 
@@ -247,6 +247,32 @@ function netStatus(now, ran) {
   if ((netState.hintTick = (netState.hintTick ?? 0) + 1) % 15 === 0) updateHint(ls.localSlots);
 }
 
+// Marcadores de los 4 jugadores (direcciones de la ROM, ver src/ram4p.inc):
+// puntos J1/J2 $07E2/$07E4 y J3/J4 Score34 $6080/$6082 (16 bits, unidades de 100);
+// vidas $32/$33 y Ctx_Lives $606C/$606D; fuera $38/$39 y Ctx_Over $606E/$606F;
+// J3/J4 entraron alguna vez: Joined34 $607E/$607F.
+function updateScores() {
+  const m = core.mem;
+  const four = (rom.manifest.players ?? 2) >= 4;
+  const inGame = m[0x607a] !== 0 || (m[0x0300] !== 0 && !four);
+  ui.scores.hidden = !inGame;
+  if (!inGame) return;
+  const rows = ui.scores.children;
+  const data = [
+    [m[0x7e2] | m[0x7e3] << 8, m[0x32], m[0x38], true],
+    [m[0x7e4] | m[0x7e5] << 8, m[0x33], m[0x39], m[0x22] !== 0],
+    [m[0x6080] | m[0x6081] << 8, m[0x606c], m[0x606e], m[0x607e] !== 0],
+    [m[0x6082] | m[0x6083] << 8, m[0x606d], m[0x606f], m[0x607f] !== 0],
+  ];
+  data.forEach(([pts, lives, out, playing], i) => {
+    const li = rows[i];
+    li.hidden = i >= 2 && !four;
+    li.querySelector(".pts").textContent = (pts * 100).toLocaleString("es");
+    li.querySelector(".lives").textContent = !playing ? "—" : out ? "fuera" : `♥${lives + 1}`;
+    li.classList.toggle("out", !playing || out !== 0);
+  });
+}
+
 // Aviso para los jugadores de este dispositivo que todavía no están en la partida.
 // Direcciones de la ROM (src/ram4p.inc): $38/$39 = J1/J2 fuera; Ctx_Over $606E/$606F = J3/J4 fuera;
 // PlayActive $607A <> 0 mientras la lógica de jugadores se ejecuta (no en título ni presentación).
@@ -277,6 +303,7 @@ const MAX_CATCHUP = 4;
 let acc = 0;
 let last = 0;
 let fpsCount = 0;
+let scoreTick = 0;
 let fpsTime = 0;
 let step = null;
 let afterTick = null;
@@ -324,6 +351,7 @@ function tick(now) {
   }
   if (session?.lockstep) netStatus(now, ran > 0);
   afterTick?.();
+  if (ran && core && (scoreTick += ran) >= 15) { scoreTick = 0; updateScores(); }
   if (now - fpsTime >= 1000) {
     const parts = [`${fpsCount} fps`];
     if (session?.lockstep) {

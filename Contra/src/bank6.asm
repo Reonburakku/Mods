@@ -1158,8 +1158,8 @@ L6_B57C:
     lda #$0F                    ; B57E  A9 0F
     sta a:$00CE,y               ; B580  99 CE 00
     jsr L6_BBE8                 ; B583  20 E8 BB
-    tya                         ; B586  98
-    sta $0448,x                 ; B587  9D 48 04
+    jsr BulletOwner4P           ; B586  98 9D 48  [4P] antes: tya / sta $0448,x
+    nop
     lda $08                     ; B58A  A5 08
     clc                         ; B58C  18
     adc #$01                    ; B58D  69 01
@@ -1617,6 +1617,16 @@ L6_BBE8:
 ; En la pasada de J3/J4: J3 desde 2 y J4 desde 4 (+ hasta 10 huecos: nunca pasa de 15).
 ; Sale con Y = $11 como el original.
 ; ------------------------------------------------------------
+; Dueño de la bala (para los puntos): en la pasada de J3/J4 se guarda 2/3 en vez de 0/1.
+BulletOwner4P:
+    tya
+    ldy Pass34
+    beq BO_store
+    ora #$02
+BO_store:
+    sta $0448,x
+    rts
+
 BulletBase4P:
     sta $00
     ldy $11

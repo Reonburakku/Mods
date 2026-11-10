@@ -816,15 +816,15 @@ L_C49F:
 
 
 L_C4A0:
-    lda $1C                     ; C4A0  A5 1C
-    bne L_C49F                  ; C4A2  D0 FB
+    jmp Score4P_A               ; C4A0  A5 1C D0  [4P] antes: lda $1C / bne L_C49F
+    nop
     lda #$00                    ; C4A4  A9 00
     sta $01                     ; C4A6  85 01
 
 L_C4A8:
-    tya                         ; C4A8  98
-    sta $02                     ; C4A9  85 02
-    asl a                       ; C4AB  0A
+    jmp Score4P_B               ; C4A8  98 85 02  [4P] antes: tya / sta $02 / asl a
+    nop
+C4A8_rest:
     tay                         ; C4AC  A8
     lda $00                     ; C4AD  A5 00
     adc $07E2,y                 ; C4AF  79 E2 07
@@ -8058,6 +8058,118 @@ SX_store:
     sta $0334,x
     rts
 
+
+; ------------------------------------------------------------
+; [4P] Puntos de J3/J4
+; ------------------------------------------------------------
+; Entradas de L_C4A0 (suma $00 al jugador Y) y L_C4A8 (suma $00/$01).
+; Jugador real = Y, o Y+2 durante la pasada de J3/J4. Las balas de J3/J4 ya llevan
+; dueño 2/3. J1/J2 siguen por la rutina original; J3/J4 usan Score34/Thresh34.
+Score4P_A:
+    lda $1C
+    bne S4_rts
+    lda #$00
+    sta $01
+Score4P_B:
+    tya
+    ldy Pass34
+    beq S4_real
+    clc
+    adc #$02
+S4_real:
+    tay
+    cpy #$02
+    bcs S4_34
+    tya                         ; J1/J2: instrucciones originales de L_C4A8
+    sta $02
+    asl a
+    jmp C4A8_rest
+S4_rts:
+    rts
+
+S4_34:
+    tya
+    sec
+    sbc #$02
+    sta ScoreTmp                ; 0 = J3, 1 = J4
+    asl a
+    tay
+    clc
+    lda $00
+    adc Score34,y
+    sta Score34,y
+    lda $01
+    adc Score34+1,y
+    bcc S4_nosat
+    lda #$FF
+    sta Score34,y
+S4_nosat:
+    sta Score34+1,y
+    ldx $01                     ; vida extra: mismas reglas que L_C4CD
+    beq S4_cmp
+    lda #$88
+    clc
+    bcc S4_bump
+S4_cmp:
+    cmp Thresh34+1,y
+    bcc S4_hi
+    bne S4_reach
+    lda Score34,y
+    cmp Thresh34,y
+    bcc S4_hi
+S4_reach:
+    lda Thresh34+1,y
+    cmp #$75
+    bcs S4_hi
+    lda #$2C
+S4_bump:
+    adc Thresh34,y
+    sta Thresh34,y
+    lda #$01
+    ldx $01
+    beq S4_bump_hi
+    lda #$13
+S4_bump_hi:
+    adc Thresh34+1,y
+    bcc S4_th_ok
+    lda #$FF
+    sta Thresh34,y
+S4_th_ok:
+    sta Thresh34+1,y
+    ldx ScoreTmp                ; +1 vida: en el contexto o cargada (pasada de J3/J4)
+    lda Pass34
+    bne S4_live
+    lda Ctx_Lives,x
+    cmp #$63
+    bcs S4_snd
+    inc Ctx_Lives,x
+    jmp S4_snd
+S4_live:
+    lda $32,x
+    cmp #$63
+    bcs S4_snd
+    inc $32,x
+S4_snd:
+    lda $01
+    bne S4_hi
+    lda #$20
+    jsr L_C16B                  ; sonido de vida extra
+S4_hi:
+    lda Score34+1,y             ; récord ($07E0/$07E1)
+    cmp $07E1
+    bcc S4_end
+    bne S4_newhi
+    lda Score34,y
+    cmp $07E0
+    bcc S4_end
+S4_newhi:
+    lda Score34,y
+    sta $07E0
+    lda Score34+1,y
+    sta $07E1
+S4_end:
+    rts
+
 ; Game over solo cuando no queda nadie: sustituye a "lda $38 / and $39" (CEF1).
 ; Devuelve A/Z como el original: distinto de 0 (Z=0) = todos fuera.
 AllOut4P:
@@ -8119,6 +8231,17 @@ R34_clear:
     bpl R34_clear
     sta Joined34                ; A = 0: pueden volver a entrar
     sta Joined34+1
+    ldx #$03
+R34_score:
+    sta Score34,x
+    dex
+    bpl R34_score
+    lda #$C8                    ; primera vida extra igual que J1/J2 ($3C = $C8)
+    sta Thresh34
+    sta Thresh34+2
+    lda #$00
+    sta Thresh34+1
+    sta Thresh34+3
     lda #$01
     sta Ctx_Over
     sta Ctx_Over+1
