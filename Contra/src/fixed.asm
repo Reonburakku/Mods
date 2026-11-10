@@ -7556,9 +7556,9 @@ L_F528:
     bne L_F527                  ; F52A  D0 FB
 
 L_F52C:
-    lda $0A                     ; F52C  A5 0A
-    and #$01                    ; F52E  29 01
-    tay                         ; F530  A8
+    jsr Target4P                ; F52C  A5 0A 29  [4P] antes: lda $0A / and #$01 / tay
+    nop
+    nop
     lda a:$0090,y               ; F531  B9 90 00
     cmp #$01                    ; F534  C9 01
     beq L_F54D                  ; F536  F0 15
@@ -7855,6 +7855,11 @@ P4_go:
     sta Pass34
     jsr Join34
     jsr L_D3B4
+    lda $83                     ; Collide34 usa $83 (enemigo en curso): conservarlo
+    pha
+    jsr Collide34
+    pla
+    sta $83
     lda #$00
     sta Pass34
     lda $2F                     ; $2F = máximo de las dos pasadas
@@ -8015,6 +8020,91 @@ R34_clear:
     tax
     pla
     plp
+    rts
+
+
+; ------------------------------------------------------------
+; [4P] Enemigos contra J3/J4
+; ------------------------------------------------------------
+; Se llama desde Players4P con J3/J4 ya cargados en el lugar de J1/J2 (así no hace
+; falta otro intercambio de contexto, que es lo más caro). Repite el choque
+; enemigo-jugador (L_E1D9) con las mismas condiciones que el bucle de enemigos
+; (L_E61E). Usa las posiciones de los enemigos del fotograma anterior.
+Collide34:
+    lda $38                     ; nadie de J3/J4 en juego: nada que hacer
+    and $39
+    bne C34_end
+    lda #$00                    ; como L_E61E: "sobre plataforma enemiga" se recalcula
+    sta $B6
+    sta $B7
+    ldx #$0F
+C34_loop:
+    lda $04B8,x                 ; enemigo activo
+    beq C34_next
+    lda $030A,x                 ; con sprite en pantalla
+    beq C34_next
+    lda $40
+    lsr a
+    bcc C34_check
+    lda $0324,x
+    cmp #$9C
+    bcc C34_next
+C34_check:
+    lda $0598,x                 ; bit 0: no choca con jugadores
+    lsr a
+    bcs C34_next
+    stx $83
+    jsr L_E1D9                  ; vuelve con X = $83
+C34_next:
+    dex
+    bpl C34_loop
+C34_end:
+    rts
+
+; Sustituye al principio de L_F52C (a qué jugador apunta un enemigo).
+; Original: Y = $0A & 1 (J1 o J2). Con J3/J4 en juego, la mitad de las veces
+; (según el enemigo y cada 64 fotogramas) apunta a J3/J4 si alguno está vivo.
+Target4P:
+    lda FourScoreOn
+    beq T4_orig
+    lda $1C
+    bne T4_orig
+    lda $1A                     ; (contador / 64) xor nº de enemigo -> pareja
+    asl a
+    rol a
+    rol a
+    eor $83
+    and #$01
+    beq T4_orig
+    lda $0A
+    and #$01
+    tay
+    lda Ctx34,y                 ; $90 de J3/J4: 1 = vivo y jugando
+    cmp #$01
+    beq T4_use
+    tya
+    eor #$01
+    tay
+    lda Ctx34,y
+    cmp #$01
+    bne T4_orig
+T4_use:
+    lda $40                     ; igual que L_F54D, con la posición de J3/J4
+    lsr a
+    lda #$B0
+    bcs T4_y
+    lda Ctx_Y,y
+T4_y:
+    sta $0A
+    lda Ctx_X,y
+    sta $0B
+    pla                         ; no volver a L_F52C: seguir en L_F55E
+    pla
+    jmp L_F55E
+T4_orig:
+    lda $0A
+    and #$01
+    tay
     rts
 
 ; --- espacio libre (lo que quede hasta $FC00) ---

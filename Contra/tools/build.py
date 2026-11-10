@@ -61,10 +61,14 @@ class Bank:
             return self.globals[name]
         return None
 
-    def define(self, name, value, where):
+    def define(self, name, value, where, label=False):
         if name in self.locals and self.locals[name] != value:
             raise AsmError(f"{where}: símbolo '{name}' definido dos veces")
         self.locals[name] = value
+        if label:
+            if not hasattr(self, "defined"):
+                self.defined = []
+            self.defined.append(name)
 
     def eval(self, expr, pc, strict):
         expr = expr.strip()
@@ -117,7 +121,7 @@ class Bank:
                     if pc is None:
                         raise AsmError("etiqueta antes de .base")
                     if not pass2:
-                        self.define(m.group(1), pc, where)
+                        self.define(m.group(1), pc, where, label=True)
                     text = m.group(2)
                     if not text:
                         continue
@@ -320,6 +324,16 @@ def main():
     rom = header + b"".join(banks)
     with open(out_path, "wb") as f:
         f.write(rom)
+    # Símbolos: "banco:dirección nombre" (útil para depurar y para las pruebas)
+    sym_path = os.path.splitext(out_path)[0] + ".sym"
+    owner = {}
+    for n, (_, _, b) in enumerate(objs):
+        for name in getattr(b, "defined", []):
+            owner[name] = n
+    with open(sym_path, "w", encoding="utf-8", newline="\n") as f:
+        for name, value in sorted(symbols.items(), key=lambda kv: (owner.get(kv[0], -1), kv[1])):
+            if name in owner and 0x8000 <= value <= 0xFFFF:
+                f.write(f"{owner[name]:02X}:{value:04X} {name}\n")
     print(f"ROM generada: {out_path} ({len(rom)} bytes, {count} bancos)")
 
     # Comparación con la original: bancos 0-6 con 0-6, fixed.asm con el banco fijo original

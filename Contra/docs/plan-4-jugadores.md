@@ -34,14 +34,17 @@ El juego se ejecutará en nuestro emulador web (ver [arquitectura.md](arquitectu
    - Sprites: el dibujado (banco 1, `R4P_Next`) añade J3/J4 después de los 26 objetos.
    - Balas: comparten las 16 entradas. En la pasada de J3/J4, J3 busca hueco desde 2 y J4 desde 4 (`BulletBase4P`, banco 6).
    - Pruebas: `tests/play4p.mjs` (entrar, moverse, disparar, empujar la pantalla, 2 minutos sin cuelgues).
-   - Coste: con 4 jugadores, un 1,6 % de fotogramas con ralentización en juego intenso (0 % con 2).
+   - Enemigos contra J3/J4 (`Collide34`, dentro de la pasada de J3/J4): mismo choque enemigo-jugador (`L_E1D9`) y mismas condiciones que el bucle de enemigos. Usa las posiciones de los enemigos del fotograma anterior.
+   - Puntería (`Target4P`, al principio de `L_F52C`): según el enemigo y cada 64 fotogramas, los enemigos apuntan a J3/J4 si alguno está vivo. Dentro de la pareja se respeta la elección original (`$0A`).
+   - Pruebas (`tests/play4p.mjs`): J3/J4 mueren en proporción parecida a J1/J2 y reciben alrededor de la mitad de los disparos apuntados.
+   - Coste: con 4 jugadores, un **7,4 %** de fotogramas lentos en juego intenso (0,1 % con 2). Cada intercambio de contexto cuesta unos 2.100 ciclos.
 
-   **Pendiente** (lo que J3/J4 todavía no hacen):
-   - Los enemigos no les hacen daño ni les apuntan: las colisiones y la puntería solo recorren J1/J2. Sí pueden morir por caídas.
-   - Tienen los mismos colores que J1/J2.
-   - Sus puntos y muertes se atribuyen a J1/J2, porque el dueño de la bala es el índice 0/1.
-   - Pueden volver a entrar con START tras su game over, así que tienen continuaciones infinitas. Además, el game over general solo mira a J1/J2.
-   - Niveles verticales (cascada, `$41`) y base (`$40`): el scroll entre parejas no está hecho.
+   **Pendiente**:
+   - Ralentización: optimizar `SwapCtx34` y/o añadir overclock opcional al emulador.
+   - J3/J4 tienen los mismos colores que J1/J2.
+   - Sus puntos se atribuyen a J1/J2 (el dueño de la bala es el índice 0/1).
+   - Pueden volver a entrar con START tras su game over (continuaciones infinitas), y el game over general solo mira a J1/J2.
+   - Niveles verticales (cascada, `$41`) y base (`$40`): no está hecho el scroll entre parejas.
    - El robo de vidas (A tras game over) solo funciona dentro de cada pareja.
 5. **Bucles de jugadores de 0-1 a 0-3** y máscaras de jugadores vivos de 4 bits.
 6. **Jugadores 3 y 4 en pantalla:** reparto de los 64 sprites de OAM, paletas compartidas (solo hay 4 paletas de sprites), balas y colisiones.

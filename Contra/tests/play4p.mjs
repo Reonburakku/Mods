@@ -1,6 +1,11 @@
 // Fase 3: partida a 4 jugadores con la ROM modificada.
 // Uso: node tests/play4p.mjs   -> capturas en tests/out/4p-*.png
+import { readFileSync } from "node:fs";
 import { TestConsole, BTN } from "./lib/console.mjs";
+
+// Símbolos de la ROM (los genera tools/build.py): nombre -> dirección
+const SYM = Object.fromEntries(readFileSync("build/contra.sym", "utf8").trim().split(/\r?\n/)
+  .map((l) => { const [ba, name] = l.split(" "); return [name, parseInt(ba.split(":")[1], 16)]; }));
 
 const c = new TestConsole("build/contra.nes");
 let fails = 0;
@@ -80,6 +85,46 @@ console.log(`      X J1 ${c.ram(0x334)}, J2 ${c.ram(0x335)}, J3 ${ctx(Ctx_X, 0)}
   check(!crashed, "2 minutos a 4 jugadores con entradas aleatorias sin colgarse" + (crashed ? ` (${crashed})` : ""));
   c.screenshot("tests/out/4p-5-aleatorio.png");
   console.log(`      vidas J1-J4: ${c.ram(0x32)}, ${c.ram(0x33)}, ${ctx(Ctx_Lives, 0)}, ${ctx(Ctx_Lives, 1)} · fuera: ${c.ram(0x38)}, ${c.ram(0x39)}, ${ctx(Ctx_Over, 0)}, ${ctx(Ctx_Over, 1)}`);
+}
+
+// Los enemigos también dañan a J3/J4: en partidas aleatorias (semillas fijas) J3/J4 deben
+// morir en una proporción parecida a J1/J2 (antes solo morían por caídas: ~la mitad).
+// Se cuenta en la rutina de muerte del juego (L_D9FA: "dec $32,x" en $DA03, "sta $38,x" en
+// $DA08) mirando qué pareja está cargada (Pass34); leer la RAM entre fotogramas no vale porque
+// en fotogramas lentos el emulador puede cortar en mitad de un intercambio de contexto.
+{
+  const deaths = [0, 0, 0, 0], aims = [0, 0];
+  for (const seed of [1, 2, 3]) {
+    const d = new TestConsole("build/contra.nes");
+    const cpu = d.nes.cpu, w = cpu.write.bind(cpu);
+    cpu.write = (a, v) => {
+      const end = (cpu.REG_PC + 1) & 0xffff;
+      if ((end === 0xda05 && (a === 0x32 || a === 0x33)) || (end === 0xda0a && (a === 0x38 || a === 0x39))) {
+        deaths[(a & 1) + (cpu.mem[0x6018] ? 2 : 0)]++;
+      }
+      // puntería: "sta $0A" con la posición del objetivo (L_F557 = J1/J2, T4_y = J3/J4)
+      if (a === 0x0a && end === 0xf559) aims[0]++;
+      if (a === 0x0a && end === SYM.T4_y + 2) aims[1]++;
+      w(a, v);
+    };
+    d.run(240); d.press(0, BTN.START, 4, 60); d.press(0, BTN.SELECT, 4, 20); d.press(0, BTN.START, 4, 600);
+    d.run(4, [0, 0, BTN.START, BTN.START]); d.run(60);
+    let r = seed;
+    const rnd = () => ((r = (r * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    const held = [0, 0, 0, 0];
+    for (let i = 0; i < 21600; i++) {
+      for (let p = 0; p < 4; p++) if (rnd() < 0.08) held[p] = (Math.floor(rnd() * 256) & ~0x30) | BTN.RIGHT;
+      const inp = [...held];
+      if (d.ram(Ctx_Over)) inp[2] |= BTN.START;
+      if (d.ram(Ctx_Over + 1)) inp[3] |= BTN.START;
+      d.frame(inp);
+    }
+  }
+  console.log(`      muertes en 3 partidas aleatorias de 6 min: J1 ${deaths[0]}, J2 ${deaths[1]}, J3 ${deaths[2]}, J4 ${deaths[3]}`);
+  const a = deaths[0] + deaths[1], b = deaths[2] + deaths[3];
+  check(b >= a * 0.6, "los enemigos dañan a J3/J4 (mueren en proporción parecida a J1/J2)");
+  console.log(`      disparos apuntados: a J1/J2 ${aims[0]}, a J3/J4 ${aims[1]}`);
+  check(aims[1] > 0 && aims[1] >= (aims[0] + aims[1]) * 0.25, "los enemigos también apuntan a J3/J4");
 }
 
 process.exitCode = fails ? 1 : 0;
