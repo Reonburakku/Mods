@@ -1,0 +1,208 @@
+:root {
+  --bg: #0b0d12;
+  --panel: #161a23;
+  --text: #e8e6e3;
+  --muted: #8a8f9c;
+  --accent: #e0403a;
+  --accent-2: #f2c14e;
+  --radius: 10px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overscroll-behavior: none;
+}
+
+#app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Pantalla: proporción 256x224 escalada sin suavizado (píxeles nítidos) */
+#stage {
+  position: relative;
+  width: min(100%, calc((100dvh - 90px) * 256 / 224));
+  aspect-ratio: 256 / 224;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .6);
+}
+
+#screen {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
+  text-align: center;
+  background: radial-gradient(ellipse at center, rgba(30, 10, 10, .85), rgba(0, 0, 0, .95));
+}
+.overlay[hidden] { display: none; }
+
+h1 {
+  margin: 0;
+  font-size: clamp(28px, 7vw, 56px);
+  letter-spacing: .12em;
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: 3px 3px 0 #000, 0 0 24px rgba(224, 64, 58, .4);
+}
+h1 span { color: var(--accent-2); }
+
+#status { margin: 0; color: var(--muted); }
+.error { margin: 0; color: #ff8a80; max-width: 40ch; }
+
+.progress {
+  width: min(260px, 70%);
+  height: 6px;
+  background: #2a2f3a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress > div { height: 100%; width: 0; background: var(--accent-2); transition: width .1s; }
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid #2a2f3a;
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+button:hover { border-color: #3c4250; }
+button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+button.big {
+  font-size: 20px;
+  font-weight: 700;
+  padding: 12px 36px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, calc((100dvh - 90px) * 256 / 224));
+}
+#toolbar button { min-width: 40px; }
+#info { margin-left: auto; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid #2a2f3a;
+  border-radius: var(--radius);
+  max-width: min(520px, calc(100vw - 32px));
+}
+dialog::backdrop { background: rgba(0, 0, 0, .6); }
+dialog h2 { margin-top: 0; }
+dialog table { border-collapse: collapse; width: 100%; }
+dialog th, dialog td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #2a2f3a; }
+dialog p { color: var(--muted); }
+
+/* ---------------------------------------------------------------- táctil */
+.touch {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: 190px;
+  padding: 0 20px max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.touch[hidden] { display: none; }
+.touch > * { pointer-events: auto; }
+.touch button { touch-action: none; }
+
+.dpad {
+  position: relative;
+  flex: none;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .08);
+  border: 2px solid rgba(255, 255, 255, .18);
+  touch-action: none;
+}
+.dpad span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .25);
+  transition: transform .04s;
+}
+
+.meta {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+}
+.meta button { font-size: 11px; padding: 6px 10px; background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .2); }
+
+.ab { flex: none; display: flex; gap: 14px; align-items: flex-end; }
+.round {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  font-size: 22px;
+  font-weight: 800;
+  background: rgba(224, 64, 58, .55);
+  border: 2px solid rgba(255, 255, 255, .25);
+}
+.round[data-btn="A"] { margin-bottom: 36px; }
+.touch button.on, .round.on { background: rgba(242, 193, 78, .8); }
+
+@media (max-width: 420px) {
+  .touch { padding-left: 12px; padding-right: 12px; }
+  .dpad { width: 132px; height: 132px; }
+  .round { width: 64px; height: 64px; }
+}
+
+/* En móvil apaisado la pantalla ocupa el alto y los controles van a los lados */
+@media (pointer: coarse) {
+  #app { justify-content: flex-start; }
+  #stage { width: min(100%, calc((100dvh - 60px) * 256 / 224)); }
+}
+@media (pointer: coarse) and (orientation: portrait) {
+  #app { padding-bottom: 210px; }
+}
