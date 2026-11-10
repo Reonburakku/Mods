@@ -9,6 +9,13 @@
 </head>
 <body>
   <main id="app">
+    <ol id="scores" class="scores" hidden aria-label="Marcadores">
+      <li class="p1"><b>J1</b> <span class="pts">0</span> <span class="lives"></span></li>
+      <li class="p2"><b>J2</b> <span class="pts">0</span> <span class="lives"></span></li>
+      <li class="p3"><b>J3</b> <span class="pts">0</span> <span class="lives"></span></li>
+      <li class="p4"><b>J4</b> <span class="pts">0</span> <span class="lives"></span></li>
+    </ol>
+
     <div id="stage">
       <canvas id="screen" width="256" height="224" aria-label="Pantalla del juego"></canvas>
 
@@ -55,12 +62,6 @@
       </div>
     </div>
 
-    <ol id="scores" class="scores" hidden aria-label="Marcadores">
-      <li class="p1"><b>J1</b> <span class="pts">0</span> <span class="lives"></span></li>
-      <li class="p2"><b>J2</b> <span class="pts">0</span> <span class="lives"></span></li>
-      <li class="p3"><b>J3</b> <span class="pts">0</span> <span class="lives"></span></li>
-      <li class="p4"><b>J4</b> <span class="pts">0</span> <span class="lives"></span></li>
-    </ol>
 
     <nav id="toolbar" aria-label="Opciones">
       <button id="btn-mute" title="Sonido">🔊</button>
