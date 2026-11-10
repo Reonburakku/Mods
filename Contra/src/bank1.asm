@@ -2193,8 +2193,9 @@ L1_AFCC:
     ldy $00                     ; AFDC  A4 00
     lda a:$0032,y               ; AFDE  B9 32 00
     ldy #$00                    ; AFE1  A0 00
-    cmp #$04                    ; AFE3  C9 04
-    bcc L1_AFE9                 ; AFE5  90 02
+    tya                         ; AFE3  [4P] antes: cmp #$04 / bcc L1_AFE9 (hasta 4 medallas)
+    nop                         ;       0 medallas: las vidas se ven en el marcador de la web;
+    bcc L1_AFE9                 ;       sigue el texto GAME OVER del jugador eliminado
 
 L1_AFE7:
     lda #$04                    ; AFE7  A9 04
