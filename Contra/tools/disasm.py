@@ -441,7 +441,8 @@ class Disassembler:
                 flush()
             i += 1
         flush()
-        with open(os.path.join(out, f"bank{bank}.asm"), "w", encoding="utf-8", newline="\n") as f:
+        name = "fixed.asm" if bank == FIXED else f"bank{bank}.asm"
+        with open(os.path.join(out, name), "w", encoding="utf-8", newline="\n") as f:
             f.write("\n".join(lines) + "\n")
 
     def write_includes(self, labels, out):
@@ -466,7 +467,7 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     rom_path = args[0] if len(args) > 0 else os.path.join(root, "rom", "Contra.nes")
     out = args[1] if len(args) > 1 else os.path.join(root, "src")
-    if os.path.exists(os.path.join(out, "bank7.asm")) and "--force" not in sys.argv:
+    if os.path.exists(os.path.join(out, "fixed.asm")) and "--force" not in sys.argv:
         sys.exit(f"{out} ya contiene un desensamblado. Volver a generarlo BORRARÍA tus cambios.\n"
                  f"Si de verdad quieres regenerarlo: python tools/disasm.py --force")
     os.makedirs(out, exist_ok=True)

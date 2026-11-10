@@ -270,6 +270,14 @@ def split_args(s):
     return args
 
 
+def rom_bank_count(header):
+    """Número de bancos de 16 KB según la cabecera (iNES o NES 2.0)."""
+    count = header[4]
+    if (header[7] & 0x0C) == 0x08:            # NES 2.0: 4 bits altos en el byte 9
+        count |= (header[9] & 0x0F) << 8
+    return count
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     src = os.path.join(root, "src")
@@ -278,48 +286,73 @@ def main():
         out_path = sys.argv[sys.argv.index("-o") + 1]
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
 
+    header = open(os.path.join(src, "header.bin"), "rb").read()
+    count = rom_bank_count(header)
+    # Bancos físicos 0..count-2: bankN.asm ($8000, intercambiables). El último: fixed.asm ($C000).
+    files = [(f"bank{n}.asm", 0x8000) for n in range(count - 1)] + [("fixed.asm", 0xC000)]
+
     symbols = {}        # todas las etiquetas son globales (los prefijos L3_ etc. evitan choques)
-    banks = {}
+    banks = []
     try:
-        objs = {n: Bank(n, os.path.join(src, f"bank{n}.asm"), symbols) for n in range(8)}
-        for b in objs.values():          # pasada 1: tamaños y etiquetas de todos los bancos
+        objs = []
+        for n, (name, base) in enumerate(files):
+            path = os.path.join(src, name)
+            if not os.path.exists(path):
+                raise AsmError(f"la cabecera indica {count} bancos pero falta {name}")
+            objs.append((name, base, Bank(n, path, symbols)))
+        for _, _, b in objs:             # pasada 1: tamaños y etiquetas de todos los bancos
             b.sizes = {}
             b.run(pass2=False)
-        for n, b in objs.items():        # pasada 2: código final
+        for name, expected, b in objs:   # pasada 2: código final
             base, data = b.run(pass2=True)
-            expected = 0xC000 if n == 7 else 0x8000
             if base != expected:
-                raise AsmError(f"bank{n}.asm: .base debe ser ${expected:04X}")
+                raise AsmError(f"{name}: .base debe ser ${expected:04X}")
             if len(data) > BANK_SIZE:
-                raise AsmError(f"bank{n}.asm ocupa {len(data)} bytes: se pasa "
+                raise AsmError(f"{name} ocupa {len(data)} bytes: se pasa "
                                f"{len(data) - BANK_SIZE} bytes de los 16384 del banco")
             if len(data) < BANK_SIZE:
-                print(f"aviso: bank{n}.asm ocupa {len(data)} bytes; se rellena con $FF")
+                print(f"aviso: {name} ocupa {len(data)} bytes; se rellena con $FF")
                 data += bytes([0xFF]) * (BANK_SIZE - len(data))
-            banks[n] = data
+            banks.append(data)
     except AsmError as e:
         sys.exit(f"ERROR: {e}")
 
-    header = open(os.path.join(src, "header.bin"), "rb").read()
-    rom = header + b"".join(banks[n] for n in range(8))
+    rom = header + b"".join(banks)
     with open(out_path, "wb") as f:
         f.write(rom)
-    print(f"ROM generada: {out_path} ({len(rom)} bytes)")
+    print(f"ROM generada: {out_path} ({len(rom)} bytes, {count} bancos)")
 
+    # Comparación con la original: bancos 0-6 con 0-6, fixed.asm con el banco fijo original
     orig_path = os.path.join(root, "rom", "Contra.nes")
-    if os.path.exists(orig_path):
-        orig = open(orig_path, "rb").read()
-        diffs = [i for i in range(min(len(rom), len(orig))) if rom[i] != orig[i]]
-        if not diffs and len(rom) == len(orig):
-            print("Idéntica a la ROM original.")
-        else:
-            print(f"Diferencias con la original: {len(diffs)} bytes")
-            for i in diffs[:20]:
-                bank, off = divmod(i - 16, BANK_SIZE)
-                addr = off + (0xC000 if bank == 7 else 0x8000)
-                print(f"  banco {bank} ${addr:04X}: {orig[i]:02X} -> {rom[i]:02X}")
-            if len(diffs) > 20:
-                print("  ...")
+    if not os.path.exists(orig_path):
+        return
+    orig = open(orig_path, "rb").read()
+    obanks = [orig[16 + i * BANK_SIZE:16 + (i + 1) * BANK_SIZE] for i in range(rom_bank_count(orig))]
+    pairs = [(i, files[i][0], banks[i], obanks[i]) for i in range(len(obanks) - 1)]
+    pairs.append((len(banks) - 1, "fixed.asm", banks[-1], obanks[-1]))
+    total = 0
+    lines = []
+    for _, name, new, old in pairs:
+        base = 0xC000 if name == "fixed.asm" else 0x8000
+        diffs = [i for i in range(BANK_SIZE) if new[i] != old[i]]
+        total += len(diffs)
+        for i in diffs[:10]:
+            lines.append(f"  {name} ${base + i:04X}: {old[i]:02X} -> {new[i]:02X}")
+        if len(diffs) > 10:
+            lines.append(f"  {name}: ... {len(diffs) - 10} más")
+    extra = len(banks) - len(obanks)
+    if total == 0 and extra == 0 and header == orig[:16]:
+        print("Idéntica a la ROM original.")
+        return
+    print(f"Cambios respecto a la original: {total} bytes en los bancos originales"
+          + (f", {extra} bancos nuevos" if extra else "")
+          + (", cabecera distinta" if header != orig[:16] else ""))
+    for line in lines[:40]:
+        print(line)
+    for i in range(len(obanks) - 1, len(banks) - 1):
+        used = sum(1 for x in banks[i][1:] if x != 0xFF)
+        if used:
+            print(f"  bank{i}.asm (nuevo): {used} bytes usados")
 
 
 if __name__ == "__main__":

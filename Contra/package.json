@@ -7,9 +7,10 @@
   },
   "scripts": {
     "build:rom": "python tools/build.py",
-    "test": "node --no-warnings tests/determinism.mjs && node --no-warnings tests/netplay.mjs",
+    "test": "node --no-warnings tests/determinism.mjs && node --no-warnings tests/netplay.mjs && node --no-warnings tests/rom4p.mjs",
     "test:smoke": "node --no-warnings tests/smoke.mjs",
-    "test:net": "node --no-warnings tests/netplay.mjs"
+    "test:net": "node --no-warnings tests/netplay.mjs",
+    "test:rom": "python tools/build.py && node --no-warnings tests/rom4p.mjs"
   },
   "type": "module",
   "private": true,

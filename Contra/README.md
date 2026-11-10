@@ -8,7 +8,8 @@ SHA-1 de la original: `c9ea66bb7cb30ad5343f1721b1d4d3219859319b`
 | Ruta | Qué es |
 |---|---|
 | `rom/Contra.nes` | ROM original (no la toques: se usa para comparar) |
-| `src/bank0.asm` … `bank7.asm` | El código fuente desensamblado. **Aquí haces los cambios.** |
+| `src/bank0.asm` … `bank14.asm`, `src/fixed.asm` | El código fuente. Bancos 0-6 originales, 7-14 nuevos (vacíos) y `fixed.asm` el banco fijo (el último). **Aquí haces los cambios.** |
+| `src/ram4p.inc` | Variables de 4 jugadores en la RAM extra `$6000-$7FFF` |
 | `src/nes.inc` | Nombres de registros de hardware (PPU, APU, mandos) y variables de RAM |
 | `src/header.bin` | Cabecera iNES de 16 bytes |
 | `build/contra.nes` | La ROM que generas |
@@ -18,7 +19,7 @@ SHA-1 de la original: `c9ea66bb7cb30ad5343f1721b1d4d3219859319b`
 
 ## Mapa de memoria
 
-- `$C000-$FFFF`: **banco 7**, siempre cargado. Motor principal: arranque, NMI, cambio de banco, IA común.
+- `$C000-$FFFF`: **banco fijo** (`src/fixed.asm`; era el banco 7 en la ROM original de 8 bancos, ahora es el 15), siempre cargado. Motor principal: arranque, NMI, cambio de banco, IA común.
 - `$8000-$BFFF`: uno de los bancos 0-6, según cuál se haya seleccionado.
   - Banco 0: IA de enemigos. Banco 1: motor de sonido y música.
   - Bancos 2-6: sobre todo datos (niveles, gráficos comprimidos, música) y algo de código.
