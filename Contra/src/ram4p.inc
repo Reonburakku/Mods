@@ -50,3 +50,4 @@ ExtPalColors  = $5040     ; paleta extra n: colores en $5040 + 4*n + 1..3
 ExtStart      = $607B     ; temporales de MarkExtPal (banco 1)
 ExtCount      = $607C
 ExtPal        = $607D
+Joined34      = $607E     ; [2] J3/J4 ya entraron con START en esta partida (solo una vez)

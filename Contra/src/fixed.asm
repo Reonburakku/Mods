@@ -2168,9 +2168,9 @@ L_CEE6:
 
 L_CEEE:
     jsr L_D371                  ; CEEE  20 71 D3
-    lda $38                     ; CEF1  A5 38
-    and $39                     ; CEF3  25 39
-    bne L_CF0A                  ; CEF5  D0 13
+    jsr AllOut4P                ; CEF1  A5 38 25  [4P] antes: lda $38 / and $39
+    nop
+    bne L_CF0A                  ; CEF5  D0 13      game over si no queda nadie
 
 L_CEF7:
     jsr L_C1E9                  ; CEF7  20 E9 C1
@@ -2356,8 +2356,8 @@ L_D003:
 L_D00E:
     dex                         ; D00E  CA
     bpl L_D003                  ; D00F  10 F2
-    tya                         ; D011  98
-    sta $0194                   ; D012  8D 94 01
+    jsr CountAlive4P            ; D011  98 8D 94  [4P] antes: tya / sta $0194
+    nop
     beq L_D01E                  ; D015  F0 07
     lda #$46                    ; D017  A9 46
     jsr L_C16B                  ; D019  20 6B C1
@@ -7988,23 +7988,70 @@ SC_pair:
     bpl SC_pair
     rts
 
-; Con J3/J4 cargados: quien esté fuera de la partida y pulse START, entra con 3 vidas.
+; Con J3/J4 cargados: quien no haya entrado todavía en esta partida y pulse START,
+; entra con 3 vidas (una sola vez; después de su game over queda fuera como J1/J2).
 Join34:
     ldx #$01
 J34_loop:
     lda $38,x
     beq J34_next
+    lda Joined34,x
+    bne J34_next
     lda $F5,x
     and #PAD_START
     beq J34_next
     lda #$02
     sta $32,x
+    lda #$01
+    sta Joined34,x
     jsr L_DAD1                  ; mismo reinicio que tras perder una vida (A=0 al volver)
     sta $90,x
     sta $38,x
 J34_next:
     dex
     bpl J34_loop
+    rts
+
+; Game over solo cuando no queda nadie: sustituye a "lda $38 / and $39" (CEF1).
+; Devuelve A/Z como el original: distinto de 0 (Z=0) = todos fuera.
+AllOut4P:
+    lda $38
+    and $39
+    beq AO_done                 ; J1 o J2 sigue jugando
+    lda FourScoreOn
+    beq AO_out
+    lda $1C
+    bne AO_out
+    lda Ctx_Over                ; J3/J4 (en el contexto): fuera = distinto de 0
+    and Ctx_Over+1
+    rts
+AO_out:
+    lda #$01
+AO_done:
+    rts
+
+; Final de nivel: el juego cuenta los jugadores vivos de pie ($90 = 1) para seguir.
+; Sustituye a "tya / sta $0194" (Y = vivos de J1/J2): suma también J3/J4.
+CountAlive4P:
+    lda FourScoreOn
+    beq CA_store
+    lda $1C
+    bne CA_store
+    ldx #$01
+CA_loop:
+    lda Ctx_Over,x
+    bne CA_next
+    lda Ctx34,x                 ; $90 de J3/J4
+    cmp #$01
+    bne CA_next
+    iny
+CA_next:
+    dex
+    bpl CA_loop
+CA_store:
+    tya
+    sta $0194
+    ora #$00                    ; Z como el original (beq si no hay nadie)
     rts
 
 ; Partida nueva / continuar: además de lo original, J3/J4 quedan fuera de la partida.
@@ -8024,6 +8071,8 @@ R34_clear:
     sta Ctx34,x
     dex
     bpl R34_clear
+    sta Joined34                ; A = 0: pueden volver a entrar
+    sta Joined34+1
     lda #$01
     sta Ctx_Over
     sta Ctx_Over+1

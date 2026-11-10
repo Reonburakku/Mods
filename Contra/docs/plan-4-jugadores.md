@@ -43,9 +43,13 @@ El juego se ejecutará en nuestro emulador web (ver [arquitectura.md](arquitectu
    - **Colores propios** (J3 verde, J4 amarillo) con una extensión cosmética del emulador: la ROM marca en `$5000-$503F` qué entradas del OAM son de J3/J4 (`MarkExtPal`, banco 1) y define los colores en `$5040+`. El emulador copia esas marcas con la DMA de OAM y dibuja esos sprites con su paleta extra. En una NES real esas escrituras se ignoran y J3/J4 se verían como J1/J2.
    - **Sin límite de 8 sprites por línea** en el emulador (solo la imagen; la simulación es idéntica, comprobado).
 
+   - **Reglas** (0.1.6):
+     - J3/J4 entran con START una sola vez por partida (`Joined34`); tras su game over quedan fuera, como J1/J2, hasta continuar o empezar otra partida.
+     - El game over solo llega cuando están fuera los cuatro (`AllOut4P`, en `$CEF1`).
+     - Para pasar de nivel tras el jefe también cuentan J3/J4 vivos (`CountAlive4P`, en `$D011`).
+
    **Pendiente**:
    - Sus puntos se atribuyen a J1/J2 (el dueño de la bala es el índice 0/1).
-   - Pueden volver a entrar con START tras su game over (continuaciones infinitas), y el game over general solo mira a J1/J2.
    - Niveles verticales (cascada, `$41`) y base (`$40`): no está hecho el scroll entre parejas.
    - El robo de vidas (A tras game over) solo funciona dentro de cada pareja.
 5. **Bucles de jugadores de 0-1 a 0-3** y máscaras de jugadores vivos de 4 bits.

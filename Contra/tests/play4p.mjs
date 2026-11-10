@@ -138,4 +138,29 @@ console.log(`      X J1 ${c.ram(0x334)}, J2 ${c.ram(0x335)}, J3 ${ctx(Ctx_X, 0)}
   check(aims[1] > 0 && aims[1] >= (aims[0] + aims[1]) * 0.25, "los enemigos también apuntan a J3/J4");
 }
 
+// Reglas de 4 jugadores: game over solo sin nadie; J3/J4 entran una vez por partida;
+// continuar tras el game over les deja volver a entrar
+{
+  const g = new TestConsole("build/contra.nes");
+  const m = g.nes.cpu.mem;
+  g.run(240); g.press(0, BTN.START, 4, 60); g.press(0, BTN.SELECT, 4, 20); g.press(0, BTN.START, 4, 600);
+  g.run(4, [0, 0, BTN.START, BTN.START]); g.run(60);
+  m[0x38] = 1; m[0x39] = 1; m[0x32] = 0; m[0x33] = 0;            // J1/J2 eliminados
+  g.run(300, [0, 0, BTN.RIGHT, BTN.RIGHT]);
+  check(g.ram(0x2c) === 4 && g.ram(0x607a) !== 0, "J1/J2 eliminados y J3/J4 vivos: la partida sigue");
+  m[Ctx_Over + 1] = 1;                                            // J4 eliminado
+  g.run(60, [0, 0, 0, BTN.START]);
+  check(g.ram(Ctx_Over + 1) === 1, "J4 no puede volver a entrar con START en la misma partida");
+  check(g.ram(0x2c) === 4, "queda J3: la partida sigue");
+  m[Ctx_Over] = 1;                                                // J3 eliminado: no queda nadie
+  g.run(10);
+  check(g.ram(0x2c) !== 4, "sin nadie en juego: game over");
+  // pantalla de game over -> CONTINUE (Start) -> J3/J4 pueden volver a entrar
+  g.run(400);
+  g.press(0, BTN.START, 4, 700);
+  g.run(4, [0, 0, BTN.START, 0]); g.run(30);
+  check(g.ram(Ctx_Over) === 0, "tras continuar, J3 puede volver a entrar con START");
+  g.screenshot("tests/out/4p-continuar.png");
+}
+
 process.exitCode = fails ? 1 : 0;
