@@ -8,12 +8,13 @@ const STORE = "roms";
 /**
  * @param {string} baseUrl carpeta con manifest.json (terminada en /)
  * @param {(msg: string, fraction?: number) => void} onProgress
+ * @param {object|null} fixedManifest  manifiesto ya conocido (no se descarga manifest.json)
  * @returns {Promise<{bytes: Uint8Array, manifest: {version: string, file: string, sha1: string, size: number}, fromCache: boolean}>}
  */
-export async function loadRom(baseUrl, onProgress = () => {}) {
+export async function loadRom(baseUrl, onProgress = () => {}, fixedManifest = null) {
   onProgress("Comprobando versión…");
-  let manifest;
-  try {
+  let manifest = fixedManifest;
+  if (!manifest) try {
     const res = await fetch(new URL("manifest.json", new URL(baseUrl, location.href)), { cache: "no-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     manifest = await res.json();

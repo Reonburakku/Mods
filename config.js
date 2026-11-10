@@ -1,12 +1,24 @@
 // Configuración de la página.
 //
-// ROM_BASE_URL: carpeta (terminada en /) que contiene manifest.json y la ROM.
-//   Desarrollo: "./rom-dev/"  (lo genera: python tools/release.py <versión>)
-//   Producción: "https://<cuenta>.blob.core.windows.net/roms/"
+// ROM_BASE_URL: carpeta (terminada en /) que contiene la ROM (y manifest.json).
+//   Desarrollo (localhost): "./rom-dev/"  (lo genera: python tools/release.py <versión>)
+//   Publicada: el blob de Azure
 // Se puede sobrescribir sin tocar el código con ?rom=<url> en la dirección de la página.
 const params = new URLSearchParams(location.search);
+const IS_LOCAL = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 
-export const ROM_BASE_URL = params.get("rom") ?? "./rom-dev/";
+export const ROM_BASE_URL = params.get("rom") ?? (IS_LOCAL ? "./rom-dev/" : "https://nesroms.blob.core.windows.net/psx/");
+
+// Manifiesto de la versión publicada (el blob no tiene manifest.json): si es null, se
+// descarga ROM_BASE_URL + "manifest.json". Al publicar otra versión, actualizar aquí.
+export const ROM_MANIFEST = params.has("rom") || IS_LOCAL ? null : {
+  version: "0.2.0",
+  file: "contra4p-0.1.9.nes",
+  sha1: "d13b0b29001244f0c034f6ca4fbd38287df6ced7",
+  size: 262160,
+  players: 4,
+  overclock: 60,
+};
 
 // Servidores TURN para el juego en red (opcional). Hacen falta solo cuando los
 // navegadores no consiguen conectarse directamente (algunas redes móviles, de empresa,

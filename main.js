@@ -1,5 +1,5 @@
 // Página principal: carga de la ROM, menú, sala de juego en red y bucle de juego.
-import { ROM_BASE_URL, OVERCLOCK_OVERRIDE } from "./config.js";
+import { ROM_BASE_URL, ROM_MANIFEST, OVERCLOCK_OVERRIDE } from "./config.js";
 import { loadRom } from "./rom/loader.js";
 import { Core, FPS } from "./emu/core.js";
 import { Screen } from "./ui/screen.js";
@@ -53,7 +53,7 @@ async function boot() {
         ui.progress.hidden = false;
         ui.progress.firstElementChild.style.width = `${Math.round(f * 100)}%`;
       }
-    });
+    }, ROM_MANIFEST);
     ui.progress.hidden = true;
     ui.status.textContent = `ROM v${rom.manifest.version}${rom.fromCache ? " (en caché)" : ""}`;
     const code = new URLSearchParams(location.hash.slice(1)).get("sala");
