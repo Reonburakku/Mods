@@ -15,7 +15,7 @@ En la web, la NES es un emulador que corre en la página y que controlamos por c
 | 8 sprites por línea (parpadeo) | Se desactiva en el emulador |
 | 2 KB de RAM | Añadimos 8 KB de RAM extra en `$6000-$7FFF` |
 | 128 KB de ROM | Se amplía a 256 KB (16 bancos UNROM) |
-| CPU lenta: ralentizaciones con mucha acción | Overclock opcional (líneas de escaneo extra) |
+| CPU lenta: ralentizaciones con mucha acción | Overclock: 60 líneas extra de VBlank (hecho; lo indica el manifiesto de la ROM y en red lo fija el anfitrión) |
 | 2 mandos | 4 mandos con el protocolo estándar del Four Score |
 | 64 sprites en total | Se mantiene al principio. Ampliable más adelante con una extensión propia si de verdad hace falta |
 

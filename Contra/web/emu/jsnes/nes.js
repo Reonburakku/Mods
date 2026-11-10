@@ -171,6 +171,13 @@ class NES {
     this.romData = data;
   }
 
+  // [fork] Overclock: "lines" líneas extra de VBlank por fotograma (0 = desactivado).
+  // El audio se ajusta para generar las mismas muestras por fotograma.
+  setOverclock(lines) {
+    this.ppu.extraVblankLines = lines | 0;
+    this.papu.setFrameRate(60 * (262 + (lines | 0)) / 262);
+  }
+
   // Adjust audio sample timing for a non-standard host frame rate. At the
   // default 60fps each frame() produces ~800 samples at 48kHz. If the host
   // calls frame() less often (e.g. 30fps), the sample timer must fire more

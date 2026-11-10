@@ -37,10 +37,10 @@ El juego se ejecutará en nuestro emulador web (ver [arquitectura.md](arquitectu
    - Enemigos contra J3/J4 (`Collide34`, dentro de la pasada de J3/J4): mismo choque enemigo-jugador (`L_E1D9`) y mismas condiciones que el bucle de enemigos. Usa las posiciones de los enemigos del fotograma anterior.
    - Puntería (`Target4P`, al principio de `L_F52C`): según el enemigo y cada 64 fotogramas, los enemigos apuntan a J3/J4 si alguno está vivo. Dentro de la pareja se respeta la elección original (`$0A`).
    - Pruebas (`tests/play4p.mjs`): J3/J4 mueren en proporción parecida a J1/J2 y reciben alrededor de la mitad de los disparos apuntados.
-   - Coste: con 4 jugadores, un **7,4 %** de fotogramas lentos en juego intenso (0,1 % con 2). Cada intercambio de contexto cuesta unos 2.100 ciclos.
+   - Coste: sin overclock, un 7,4 % de fotogramas lentos con 4 jugadores en juego intenso (0,1 % con 2). Cada intercambio de contexto cuesta unos 2.100 ciclos.
+   - **Overclock del emulador** (`Core({overclock})`, fork de jsnes): repite la última línea de VBlank N veces. Con **60 líneas, 0 % de fotogramas lentos** y la emulación sigue a ~660 fps. Va en el manifiesto de la ROM (`overclock: 60`, `release.py --overclock`); en red lo fija el anfitrión al dar la salida. Comprobado: sigue siendo determinista (también guardando y cargando estado) y el audio mantiene las muestras por fotograma.
 
    **Pendiente**:
-   - Ralentización: optimizar `SwapCtx34` y/o añadir overclock opcional al emulador.
    - J3/J4 tienen los mismos colores que J1/J2.
    - Sus puntos se atribuyen a J1/J2 (el dueño de la bala es el índice 0/1).
    - Pueden volver a entrar con START tras su game over (continuaciones infinitas), y el game over general solo mira a J1/J2.

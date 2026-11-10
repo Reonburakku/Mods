@@ -1,5 +1,5 @@
 // Página principal: carga de la ROM, menú, sala de juego en red y bucle de juego.
-import { ROM_BASE_URL } from "./config.js";
+import { ROM_BASE_URL, OVERCLOCK_OVERRIDE } from "./config.js";
 import { loadRom } from "./rom/loader.js";
 import { Core, FPS } from "./emu/core.js";
 import { Screen } from "./ui/screen.js";
@@ -84,14 +84,22 @@ async function ensureAudio() {
   ui.mute.disabled = !audio;
 }
 
-function newCore() {
-  core = new Core(rom.bytes, audio ? { sampleRate: audio.sampleRate, onAudio: audio.onSample } : {});
+/** Overclock que usará este dispositivo si juega solo o si es el anfitrión. */
+function chosenOverclock() {
+  return OVERCLOCK_OVERRIDE ?? rom.manifest.overclock ?? 0;
+}
+
+function newCore(overclock) {
+  core = new Core(rom.bytes, {
+    overclock,
+    ...(audio ? { sampleRate: audio.sampleRate, onAudio: audio.onSample } : {}),
+  });
 }
 
 // ------------------------------------------------------------------ juego local
 ui.playLocal.addEventListener("click", async () => {
   await ensureAudio();
-  newCore();
+  newCore(chosenOverclock());
   ui.overlay.hidden = true;
   startLoop(localStep);
 });
@@ -116,6 +124,7 @@ async function openRoom(code, host) {
     code, host,
     me: { name: ui.myName.value, local: 1, sha1: rom.manifest.sha1, version: rom.manifest.version },
     maxPlayers: rom.manifest.players ?? 2,
+    overclock: chosenOverclock(),
   });
   session.onLobby = renderLobby;
   session.onError = (msg) => { fail(msg); };
@@ -206,7 +215,7 @@ function renderLobby(players) {
 const netState = { stallSince: 0, left: null, hashMsg: null };
 
 function startNetGame(game) {
-  newCore();
+  newCore(game.overclock);         // el del anfitrión: tiene que ser igual en todos
   ui.overlay.hidden = true;
   netState.stallSince = 0;
   startLoop(netStep, () => { session.flush(netState.hashMsg); netState.hashMsg = null; }, { background: true });

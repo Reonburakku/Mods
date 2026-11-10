@@ -71,4 +71,23 @@ for (const fourScore of [true, false]) {
   c.screenshot("tests/out/rom4p-partida.png");
 }
 
+// 4. Overclock (líneas extra de VBlank): sigue siendo determinista, también guardando/cargando
+{
+  const rec = recording(3000, 77, { players: 2 });
+  const hash = (c) => { let h = 0x811c9dc5; for (let i = 0; i < 0x800; i++) h = Math.imul(h ^ c.mem[i], 0x01000193); return h >>> 0; };
+  const a = new Core(MODIFIED, { overclock: 60 }), b = new Core(MODIFIED, { overclock: 60 });
+  let same = true;
+  for (let f = 0; f < 1500; f++) { a.frame(rec[f]); b.frame(rec[f]); if (hash(a) !== hash(b)) { same = false; break; } }
+  const st = JSON.stringify(a.saveState());
+  const c = new Core(MODIFIED, { overclock: 60 });
+  c.loadState(JSON.parse(st));
+  for (let f = 1500; f < 3000 && same; f++) { a.frame(rec[f]); c.frame(rec[f]); if (hash(a) !== hash(c)) same = false; }
+  check(same, "con overclock: determinista y el estado guardado continúa igual en otra consola");
+  // y no es lo mismo que sin overclock (si lo fuera, la opción no estaría haciendo nada)
+  const d = new Core(MODIFIED, { overclock: 0 }), e = new Core(MODIFIED, { overclock: 60 });
+  let differs = false;
+  for (let f = 0; f < 3000 && !differs; f++) { d.frame(rec[f]); e.frame(rec[f]); if (hash(d) !== hash(e)) differs = true; }
+  check(differs, "el overclock cambia la simulación (por eso todos los dispositivos deben usar el mismo valor)");
+}
+
 process.exitCode = fails ? 1 : 0;
