@@ -2221,8 +2221,9 @@ L_CF2E:
     sta $10                     ; CF36  85 10
     lda $AB                     ; CF38  A5 AB
     sta $11                     ; CF3A  85 11
-    ldx #$40                    ; CF3C  A2 40
-    jsr L_C481                  ; CF3E  20 81 C4
+    jsr LevelEnd4P              ; CF3C  A2 40 20  [4P] antes: ldx #$40 / jsr L_C481
+    nop
+    nop
     lda $3B                     ; CF41  A5 3B
     beq L_CF6E                  ; CF43  F0 29
     lda $10                     ; CF45  A5 10
@@ -2252,9 +2253,11 @@ L_CF65:
 
 
 L_CF6E:
-    lda $1C                     ; CF6E  A5 1C
-    bne L_CF9A                  ; CF70  D0 28
-    jsr L_C9A1                  ; CF72  20 A1 C9
+    jmp GameOver4P              ; CF6E  A5 1C D0  [4P] antes: lda $1C / bne L_CF9A / jsr L_C9A1
+    nop
+    nop
+    nop
+    nop
     lda #$0A                    ; CF75  A9 0A
     jsr L_C204                  ; CF77  20 04 C2
     lda #$06                    ; CF7A  A9 06
@@ -8243,6 +8246,102 @@ S4_newhi:
     lda Score34+1,y
     sta $07E1
 S4_end:
+    rts
+
+
+; ------------------------------------------------------------
+; [4P] Final de nivel y game over
+; ------------------------------------------------------------
+; Sustituye a "ldx #$40 / jsr L_C481" en L_CF2E (estado 5, tras pasar el nivel o el game over).
+; Además de borrar $40-$EF como el original (estado de J1/J2), borra el de J3/J4 en el
+; contexto para que aparezcan al empezar el nivel siguiente igual que J1/J2.
+; Si se ha pasado el nivel ($3B <> 0), cada jugador de la partida recibe 2 vidas más y
+; los eliminados vuelven con 2.
+LevelEnd4P:
+    ldx #$40
+    jsr L_C481
+    lda #$00
+    ldx #CTX_ZP_LEN-1
+LE_ctx:
+    sta Ctx34,x
+    dex
+    bpl LE_ctx
+    ldx #$07                    ; Ctx_Spr..Ctx_Attr
+LE_obj:
+    sta Ctx_Spr,x
+    dex
+    bpl LE_obj
+    lda $1C
+    bne LE_end
+    lda $3B
+    beq LE_end
+    lda #$02                    ; +2 vidas
+    jmp Lives4P
+LE_end:
+    rts
+
+; Game over (nadie en juego): sustituye a la pantalla de CONTINUE/END (L_CF6E).
+; En vez de volver al título, se repite el nivel con 2 vidas para cada jugador de la
+; partida y se conservan los puntos. En la demo del título se sale como el original.
+GameOver4P:
+    lda $1C
+    beq GO_retry
+    inc $1F
+    rts
+GO_retry:
+    lda #$FF                    ; vidas = 2 (valor 1)
+    jsr Lives4P
+    jmp L_CF65                  ; estado 0: se vuelve a cargar el nivel $30
+
+; Vidas para los jugadores de la partida: J1 siempre, J2 en partidas de 2 ($22),
+; J3/J4 si han entrado (Joined34). A = 2: suma 2 (máximo 99) y quien esté fuera
+; vuelve con 2 vidas; A = $FF: todos con 2 vidas. Los eliminados vuelven al juego.
+Lives4P:
+    sta ScoreTmp
+    ldx #$00
+    jsr L4_j12
+    lda $22
+    beq L4_34
+    ldx #$01
+    jsr L4_j12
+L4_34:
+    ldx #$01
+L4_34loop:
+    lda Joined34,x
+    beq L4_34next
+    ldy Ctx_Lives,x
+    lda Ctx_Over,x
+    jsr L4_calc
+    sta Ctx_Lives,x
+    lda #$00
+    sta Ctx_Over,x
+L4_34next:
+    dex
+    bpl L4_34loop
+    rts
+L4_j12:
+    ldy $32,x
+    lda $38,x
+    jsr L4_calc
+    sta $32,x
+    lda #$00
+    sta $38,x
+    rts
+; A = fuera (0 = jugando, cargado el último para que Z sea el suyo), Y = vidas -> A = vidas nuevas
+L4_calc:
+    bne L4_two                  ; eliminado: vuelve con 2 vidas
+    lda ScoreTmp
+    bmi L4_two
+    tya
+    clc
+    adc #$02
+    cmp #$63
+    bcc L4_ret
+    lda #$63
+L4_ret:
+    rts
+L4_two:
+    lda #$01
     rts
 
 ; Game over solo cuando no queda nadie: sustituye a "lda $38 / and $39" (CEF1).

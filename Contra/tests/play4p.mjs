@@ -155,12 +155,40 @@ console.log(`      X J1 ${c.ram(0x334)}, J2 ${c.ram(0x335)}, J3 ${ctx(Ctx_X, 0)}
   m[Ctx_Over] = 1;                                                // J3 eliminado: no queda nadie
   g.run(10);
   check(g.ram(0x2c) !== 4, "sin nadie en juego: game over");
-  // pantalla de game over -> CONTINUE (Start) -> J3/J4 pueden volver a entrar
-  g.run(400);
-  g.press(0, BTN.START, 4, 700);
-  g.run(4, [0, 0, BTN.START, 0]); g.run(30);
-  check(g.ram(Ctx_Over) === 0, "tras continuar, J3 puede volver a entrar con START");
+  // game over: se repite el mismo nivel con 2 vidas (valor 1) para todos y se conservan los puntos
+  m[0x7e2] = 7;
+  let back = -1;
+  for (let i = 0; i < 1200 && back < 0; i++) { g.frame([0, 0, 0, 0]); if (g.ram(0x2c) === 4 && i > 30) back = i; }
+  console.log(`      vuelta al juego tras el game over: ${back} fotogramas`);
+  g.run(120);
+  check(back > 0 && g.ram(0x30) === 0, "tras el game over se repite el mismo nivel (sin pantalla de CONTINUE)");
+  check([0x32, 0x33, Ctx_Lives, Ctx_Lives + 1].every((a) => g.ram(a) === 1) &&
+    [0x38, 0x39, Ctx_Over, Ctx_Over + 1].every((a) => g.ram(a) === 0), "los 4 jugadores vuelven con 2 vidas");
+  check(g.ram(0x7e2) === 7, "el game over conserva los puntos");
   g.screenshot("tests/out/4p-continuar.png");
+}
+
+// Pasar el nivel: todos los de la partida reciben 2 vidas más y los eliminados vuelven con 2.
+// J3/J4 reaparecen en el nivel siguiente igual que J1/J2.
+{
+  const g = new TestConsole("build/contra.nes");
+  const m = g.nes.cpu.mem;
+  g.core.nes.setOverclock(60); g.core.overclock = 60;
+  g.run(240); g.press(0, BTN.START, 4, 60); g.press(0, BTN.SELECT, 4, 20); g.press(0, BTN.START, 4, 600);
+  g.run(4, [0, 0, BTN.START, BTN.START]); g.run(120);
+  m[0x32] = 3; m[0x39] = 1; m[0x33] = 0;                          // J1 con 4 vidas, J2 eliminado
+  m[Ctx_Lives] = 0; m[Ctx_Over + 1] = 1; m[Ctx_Lives + 1] = 0;     // J3 con 1 vida, J4 eliminado
+  m[0x3b] = 1;                                                    // nivel superado
+  let stage = -1;
+  for (let i = 0; i < 3000 && stage < 0; i++) { g.frame([0, 0, 0, 0]); if (g.ram(0x30) === 1 && g.ram(0x2c) === 4) stage = i; }
+  g.run(240);
+  console.log(`      vidas tras pasar el nivel: J1 ${g.ram(0x32)}, J2 ${g.ram(0x33)}, J3 ${g.ram(Ctx_Lives)}, J4 ${g.ram(Ctx_Lives + 1)}`);
+  check(stage > 0, "se pasa al nivel 2");
+  check(g.ram(0x32) === 5 && g.ram(Ctx_Lives) === 2, "pasar el nivel da 2 vidas más a quien sigue en juego");
+  check(g.ram(0x39) === 0 && g.ram(0x33) === 1 && g.ram(Ctx_Over + 1) === 0 && g.ram(Ctx_Lives + 1) === 1,
+    "los eliminados vuelven al juego con 2 vidas al pasar el nivel");
+  check(g.ram(Ctx_Spr) !== 0 && g.ram(Ctx_Spr + 1) !== 0, "J3/J4 aparecen en el nivel siguiente");
+  g.screenshot("tests/out/4p-nivel2.png");
 }
 
 // Puntos: van a quien dispara. Todos avanzan (si no, el compañero en el borde frena la
