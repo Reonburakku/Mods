@@ -37,6 +37,8 @@ export class LocalInput {
 
   onKey(e, down) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target;
+    if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement) return;
     const p1 = KEYS_P1[e.code], p2 = KEYS_P2[e.code];
     if (p1 === undefined && p2 === undefined) return;
     if (!this.enabled) return;
