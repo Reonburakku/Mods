@@ -51,6 +51,9 @@ class PPU {
     // Set by step() when VBlank fires, signals frame loop to break.
     this.frameEnded = false;
     this.dummyCycleToggle = false;
+    // [fork] Overclock: líneas extra de VBlank por fotograma (0 = NES real)
+    this.extraVblankLines = 0;
+    this.extraLinesLeft = 0;
     this.validTileData = false;
     this.scanlineAlreadyRendered = null;
 
@@ -307,6 +310,7 @@ class PPU {
       }
     }
     this.nmiSuppressed = false;
+    this.extraLinesLeft = this.extraVblankLines; // [fork] overclock
     this.startVBlank();
     this.frameEnded = true;
   }
@@ -414,6 +418,14 @@ class PPU {
   endScanline() {
     switch (this.scanline) {
       case 19:
+        // [fork] Overclock: repetir esta última línea de VBlank "extraVblankLines"
+        // veces. La CPU sigue ejecutando pero la PPU no avanza (ni renderiza ni
+        // cambia flags), así que el juego tiene más tiempo por fotograma.
+        if (this.extraLinesLeft > 0) {
+          this.extraLinesLeft--;
+          this.scanline--; // se vuelve a incrementar al final de endScanline
+          break;
+        }
         // Dummy scanline.
         // May be variable length:
         if (this.dummyCycleToggle) {
@@ -2238,6 +2250,8 @@ class PPU {
     "nmiSuppressed",
     "vblankPending",
     "dummyCycleToggle",
+    "extraVblankLines",
+    "extraLinesLeft",
     "validTileData",
     "scanlineAlreadyRendered",
   ];

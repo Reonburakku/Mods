@@ -45,11 +45,12 @@ export class NetSession {
    * @param {{name: string, local: number, sha1: string, version: string}} o.me
    * @param {number} o.maxPlayers plazas que admite la ROM (2 el Contra original, 4 la modificada)
    */
-  constructor({ code, host, me, maxPlayers }) {
+  constructor({ code, host, me, maxPlayers, overclock = 0 }) {
     this.code = code;
     this.isHost = host;
     this.me = { ...me };
     this.maxPlayers = maxPlayers;
+    this.overclock = overclock;     // solo cuenta el del anfitrión
     this.selfId = selfId;
     this.hostId = host ? selfId : null;
     this.peers = new Map();         // peerId -> {name, local, sha1, version}
@@ -165,7 +166,7 @@ export class NetSession {
     const rtt = samples.length ? samples[Math.floor(samples.length / 2)] : 100;
     const jitter = samples.length ? samples[Math.floor(samples.length * 0.9)] - rtt : 20;
     const slots = Object.fromEntries(this.players.filter((p) => p.slots.length).map((p) => [p.id, p.slots]));
-    const msg = { t: "start", slots, delay: recommendedDelay(rtt, jitter), rtt };
+    const msg = { t: "start", slots, delay: recommendedDelay(rtt, jitter), rtt, overclock: this.overclock };
     await this.ctl.send(msg, { target: Object.keys(slots).filter((id) => id !== this.selfId) });
     this.begin(msg);
   }
@@ -175,7 +176,7 @@ export class NetSession {
     if (!mine) { this.onError("La partida ha empezado sin este dispositivo."); return; }
     const peerSlots = { ...msg.slots };
     delete peerSlots[this.selfId];
-    this.game = { slots: msg.slots, delay: msg.delay, rtt: msg.rtt };
+    this.game = { slots: msg.slots, delay: msg.delay, rtt: msg.rtt, overclock: msg.overclock | 0 };
     this.lockstep = new Lockstep({ localSlots: mine, peerSlots, delay: msg.delay });
     this.onStart(this.game);
   }

@@ -26,8 +26,11 @@ export class Core {
    *   Sin onAudio no se emula el sonido (más rápido; no afecta al estado del juego).
    *   fourScore: adaptador de 4 mandos conectado (un juego que lee solo 8 bits por
    *   puerto, como el Contra original, funciona igual con o sin él).
+   *   overclock: líneas extra de VBlank por fotograma (0 = NES real). Da más tiempo de
+   *   CPU por fotograma y evita ralentizaciones. Forma parte de la simulación: todos los
+   *   dispositivos de una partida en red deben usar el mismo valor.
    */
-  constructor(rom, { sampleRate = 48000, onAudio = null, fourScore = true } = {}) {
+  constructor(rom, { sampleRate = 48000, onAudio = null, fourScore = true, overclock = 0 } = {}) {
     /** Imagen del último fotograma: 0xBBGGRR por píxel. */
     this.frameBuffer = new Uint32Array(WIDTH * HEIGHT);
     this.nes = new NES({
@@ -38,6 +41,8 @@ export class Core {
       fourScore,
     });
     this.nes.loadROM(rom);
+    this.overclock = overclock | 0;
+    this.nes.setOverclock(this.overclock);
     this.frameCount = 0;
   }
 
@@ -52,7 +57,7 @@ export class Core {
     this.frameCount++;
   }
 
-  reset() { this.nes.reset(); }
+  reset() { this.nes.reset(); this.nes.setOverclock(this.overclock); }
 
   /** RAM de la CPU (lectura): 0x0000-0x07FF interna, 0x6000-0x7FFF extra. */
   get mem() { return this.nes.cpu.mem; }
