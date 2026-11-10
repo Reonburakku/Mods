@@ -504,7 +504,7 @@ L_C2DC:
 
 
 L_C2F4:
-    jsr L_C43E                  ; C2F4  20 3E C4
+    jsr NewGame4P               ; C2F4  20 3E C4  [4P] antes: jsr L_C43E
     jmp L_C305                  ; C2F7  4C 05 C3
 
 
@@ -2287,7 +2287,7 @@ L_CF9D:
     jsr L_C183                  ; CFA3  20 83 C1
     lda $6B                     ; CFA6  A5 6B
     bne L_CFDC                  ; CFA8  D0 32
-    jsr L_C447                  ; CFAA  20 47 C4
+    jsr Continue4P              ; CFAA  20 47 C4  [4P] antes: jsr L_C447
     lda #$00                    ; CFAD  A9 00
     sta $2C                     ; CFAF  85 2C
 
@@ -2641,7 +2641,7 @@ D_D226:
     .byte $18,$07,$16,$18,$07,$16,$00,$00,$0B,$1B,$3B
 
 L_D371:
-    jsr L_D3B4                  ; D371  20 B4 D3
+    jsr Players4P               ; D371  20 B4 D3  [4P] antes: jsr L_D3B4
     lda $73                     ; D374  A5 73
     cmp #$02                    ; D376  C9 02
     bcc L_D37C                  ; D378  90 02
@@ -7677,11 +7677,18 @@ RP4_clear:
     sta $6000,x
     inx
     bne RP4_clear
+    lda #$01                    ; J3/J4 fuera de la partida
+    sta Ctx_Over
+    sta Ctx_Over+1
     lda #$C4
     sta Ram4Magic
     lda #$4A
     sta Ram4Magic+1
 RP4_ready:
+    lda PlayActive              ; contador "partida en marcha" (lo repone Players4P)
+    beq RP4_idle
+    dec PlayActive
+RP4_idle:
     jsr ReadRaw4
     ldx #$03
 RP4_copy:
@@ -7800,6 +7807,214 @@ RR4_none:
     sta FourScoreOn
     sta Pad4RawA+2
     sta Pad4RawA+3
+    rts
+
+
+; ------------------------------------------------------------
+; [4P] Jugadores 3 y 4 por intercambio de contexto
+; ------------------------------------------------------------
+; Sustituye a "jsr L_D3B4" (actualización de jugadores) en L_D371.
+; 1) J1/J2 como en el original. 2) Con Four Score: se intercambia el estado de
+; J1/J2 con el de J3/J4 (Ctx34), se ejecuta la MISMA rutina (J3/J4 hacen de J1/J2)
+; y se vuelve a intercambiar.
+Players4P:
+    jsr L_D3B4
+    lda FourScoreOn
+    beq P4_off
+    lda $1C                     ; $1C <> 0: título / demo automática -> sin J3/J4
+    beq P4_go
+P4_off:
+    rts
+P4_go:
+    lda #30                     ; señal "partida en marcha" para la web
+    sta PlayActive
+    lda $2F                     ; resultados compartidos de la pasada 1
+    sta Comb2F
+    lda $8E
+    sta Comb8E
+    lda $68
+    sta Comb68
+    lda $F1                     ; mandos: J3/J4 en el lugar de J1/J2
+    sta SaveF1
+    lda $F2
+    sta SaveF1+1
+    lda $F5
+    sta SaveF1+2
+    lda $F6
+    sta SaveF1+3
+    lda Pad4Held+2
+    sta $F1
+    lda Pad4Held+3
+    sta $F2
+    lda Pad4New+2
+    sta $F5
+    lda Pad4New+3
+    sta $F6
+    jsr SwapCtx34
+    lda #$01
+    sta Pass34
+    jsr Join34
+    jsr L_D3B4
+    lda #$00
+    sta Pass34
+    lda $2F                     ; $2F = máximo de las dos pasadas
+    cmp Comb2F
+    bcs P4_2F
+    lda Comb2F
+    sta $2F
+P4_2F:
+    lda $8E                     ; $8E = alguna de las dos
+    ora Comb8E
+    sta $8E
+    lda $68                     ; $68 (empuje de la pantalla) = máximo
+    cmp Comb68
+    bcs P4_68
+    lda Comb68
+    sta $68
+P4_68:
+    lda $A2                     ; ¿quién ha empujado la pantalla?
+    ora $A3
+    sta PushB
+    lda Ctx34+$12               ; $A2/$A3 de J1/J2 (están en el contexto)
+    ora Ctx34+$13
+    sta PushA
+    lda $40                     ; solo en niveles horizontales (como L_D42C)
+    ora $41
+    bne P4_noshiftB
+    lda PushA
+    beq P4_noshiftB
+    lda PushB
+    bne P4_noshiftB
+    jsr ShiftLivePair           ; J1/J2 empujan y J3/J4 no: J3/J4 se desplazan
+P4_noshiftB:
+    jsr SwapCtx34
+    lda SaveF1
+    sta $F1
+    lda SaveF1+1
+    sta $F2
+    lda SaveF1+2
+    sta $F5
+    lda SaveF1+3
+    sta $F6
+    lda $40
+    ora $41
+    bne P4_end
+    lda PushB
+    beq P4_end
+    lda PushA
+    bne P4_end
+    jsr ShiftLivePair           ; J3/J4 empujan y J1/J2 no: J1/J2 se desplazan
+P4_end:
+    rts
+
+; Desplaza 1 píxel a la izquierda a los jugadores cargados (X=0/1) que estén en juego.
+ShiftLivePair:
+    ldx #$01
+SLP_loop:
+    lda $38,x
+    bne SLP_next
+    lda $0300,x
+    beq SLP_next
+    lda $0334,x
+    cmp #$10
+    bcc SLP_next
+    dec $0334,x
+SLP_next:
+    dex
+    bpl SLP_loop
+    rts
+
+; Intercambia el estado de la pareja cargada con el de Ctx34.
+SwapCtx34:
+    ldx #CTX_ZP_LEN-1
+SC_zp:
+    lda $90,x
+    ldy Ctx34,x
+    sty $90,x
+    sta Ctx34,x
+    dex
+    bpl SC_zp
+    ldx #$01
+SC_pair:
+    lda $32,x
+    ldy Ctx_Lives,x
+    sty $32,x
+    sta Ctx_Lives,x
+    lda $38,x
+    ldy Ctx_Over,x
+    sty $38,x
+    sta Ctx_Over,x
+    lda $0300,x
+    pha
+    lda Ctx_Spr,x
+    sta $0300,x
+    pla
+    sta Ctx_Spr,x
+    lda $031A,x
+    pha
+    lda Ctx_Y,x
+    sta $031A,x
+    pla
+    sta Ctx_Y,x
+    lda $0334,x
+    pha
+    lda Ctx_X,x
+    sta $0334,x
+    pla
+    sta Ctx_X,x
+    lda $034E,x
+    pha
+    lda Ctx_Attr,x
+    sta $034E,x
+    pla
+    sta Ctx_Attr,x
+    dex
+    bpl SC_pair
+    rts
+
+; Con J3/J4 cargados: quien esté fuera de la partida y pulse START, entra con 3 vidas.
+Join34:
+    ldx #$01
+J34_loop:
+    lda $38,x
+    beq J34_next
+    lda $F5,x
+    and #PAD_START
+    beq J34_next
+    lda #$02
+    sta $32,x
+    jsr L_DAD1                  ; mismo reinicio que tras perder una vida (A=0 al volver)
+    sta $90,x
+    sta $38,x
+J34_next:
+    dex
+    bpl J34_loop
+    rts
+
+; Partida nueva / continuar: además de lo original, J3/J4 quedan fuera de la partida.
+NewGame4P:
+    jsr L_C43E
+    jmp Reset34
+Continue4P:
+    jsr L_C447
+Reset34:
+    php
+    pha
+    txa
+    pha
+    lda #$00
+    ldx #$57
+R34_clear:
+    sta Ctx34,x
+    dex
+    bpl R34_clear
+    lda #$01
+    sta Ctx_Over
+    sta Ctx_Over+1
+    pla
+    tax
+    pla
+    plp
     rts
 
 ; --- espacio libre (lo que quede hasta $FC00) ---

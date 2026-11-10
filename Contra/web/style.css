@@ -255,3 +255,23 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color:
 }
 .wait[hidden] { display: none; }
 .wait p { margin: 0; }
+
+.hint {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 4px 10px;
+  max-width: calc(100% - 16px);
+  background: rgba(0, 0, 0, .75);
+  border: 1px solid var(--accent-2);
+  border-radius: 6px;
+  color: var(--accent-2);
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+  animation: hint-pulse 1.2s ease-in-out infinite alternate;
+}
+.hint[hidden] { display: none; }
+@keyframes hint-pulse { from { opacity: 1; } to { opacity: .55; } }

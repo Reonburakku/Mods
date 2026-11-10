@@ -27,7 +27,22 @@ El juego se ejecutará en nuestro emulador web (ver [arquitectura.md](arquitectu
 2. ✅ **Mapa de RAM real:** en [ram-jugadores.md](ram-jugadores.md) (`tests/ram-map.mjs`). El estado de cada jugador ocupa `$90-$DB` en arrays de 2 entradas intercalados; la estrategia propuesta es el intercambio de contexto.
 3. ✅ **Lectura Four Score** de 4 mandos en arrays de 4 (`Pad4Held/New/Prev` en `$6000+`, ver `src/ram4p.inc`). J1/J2 siguen funcionando como en el original. Al acabar esta fase, el juego sigue siendo de 2 jugadores.
    - Nota: desde aquí la ROM ya no es idéntica fotograma a fotograma a la original. Contra genera su azar en el bucle de espera (`$C057`), y la NMI ahora tarda algo más.
-4. **Datos por jugador mediante intercambio de contexto** (ver [ram-jugadores.md](ram-jugadores.md)): la lógica de jugadores se ejecuta una segunda vez con el estado de J3/J4 cargado en las posiciones de J1/J2. Además hay que adaptar la lógica de `eor #$01`.
+4. 🟡 **J3/J4 en juego mediante intercambio de contexto** (ver [ram-jugadores.md](ram-jugadores.md)). Hecho en la versión 0.1.0 de la ROM:
+   - `Players4P` (`fixed.asm`): la lógica de jugadores (`L_D3B4`) se ejecuta otra vez con el estado de J3/J4 (`Ctx34` en `$6020`) cargado en el lugar de J1/J2. Los resultados compartidos se combinan: `$2F` y `$68` con el máximo, `$8E` con OR.
+   - J3/J4 entran pulsando START durante la partida, con 3 vidas. Al empezar una partida o continuar quedan fuera.
+   - Scroll: si una pareja empuja la pantalla y la otra no, los de la otra se desplazan 1 píxel por fotograma (como hace `L_D42C` dentro de una pareja). Solo en niveles horizontales.
+   - Sprites: el dibujado (banco 1, `R4P_Next`) añade J3/J4 después de los 26 objetos.
+   - Balas: comparten las 16 entradas. En la pasada de J3/J4, J3 busca hueco desde 2 y J4 desde 4 (`BulletBase4P`, banco 6).
+   - Pruebas: `tests/play4p.mjs` (entrar, moverse, disparar, empujar la pantalla, 2 minutos sin cuelgues).
+   - Coste: con 4 jugadores, un 1,6 % de fotogramas con ralentización en juego intenso (0 % con 2).
+
+   **Pendiente** (lo que J3/J4 todavía no hacen):
+   - Los enemigos no les hacen daño ni les apuntan: las colisiones y la puntería solo recorren J1/J2. Sí pueden morir por caídas.
+   - Tienen los mismos colores que J1/J2.
+   - Sus puntos y muertes se atribuyen a J1/J2, porque el dueño de la bala es el índice 0/1.
+   - Pueden volver a entrar con START tras su game over, así que tienen continuaciones infinitas. Además, el game over general solo mira a J1/J2.
+   - Niveles verticales (cascada, `$41`) y base (`$40`): el scroll entre parejas no está hecho.
+   - El robo de vidas (A tras game over) solo funciona dentro de cada pareja.
 5. **Bucles de jugadores de 0-1 a 0-3** y máscaras de jugadores vivos de 4 bits.
 6. **Jugadores 3 y 4 en pantalla:** reparto de los 64 sprites de OAM, paletas compartidas (solo hay 4 paletas de sprites), balas y colisiones.
 7. **Reglas de juego:** aparición, muertes, robo de vidas, game over, continuar, scroll (quién empuja la pantalla) y el nivel en vista trasera (base).

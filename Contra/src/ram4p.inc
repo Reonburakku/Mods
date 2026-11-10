@@ -24,3 +24,22 @@ PAD_UP     = $08
 PAD_DOWN   = $04
 PAD_LEFT   = $02
 PAD_RIGHT  = $01
+
+; --- intercambio de contexto J3/J4 (Players4P en fixed.asm) ---
+Pass34        = $6018     ; 1 mientras se ejecuta la lógica de jugadores con J3/J4
+SaveF1        = $6019     ; [4] $F1,$F2,$F5,$F6 de J1/J2 durante la pasada de J3/J4
+Comb2F        = $601D     ; resultados compartidos de la pasada de J1/J2
+Comb8E        = $601E
+Comb68        = $601F
+Ctx34         = $6020     ; [88] estado de la pareja que NO está cargada (J3/J4 normalmente)
+CTX_ZP_LEN    = $4C       ;   +$00..+$4B: $90-$DB (estado del jugador, arrays de 2)
+Ctx_Lives     = $606C     ;   [2] $32/$33  vidas
+Ctx_Over      = $606E     ;   [2] $38/$39  0 = jugando, distinto de 0 = fuera de la partida
+Ctx_Spr       = $6070     ;   [2] $0300/$0301 sprite (0 = no se dibuja)
+Ctx_Y         = $6072     ;   [2] $031A/$031B Y
+Ctx_X         = $6074     ;   [2] $0334/$0335 X
+Ctx_Attr      = $6076     ;   [2] $034E/$034F atributos
+PushA         = $6078     ; la pareja J1/J2 empujó la pantalla en este fotograma
+PushB         = $6079     ; la pareja J3/J4 empujó la pantalla
+PlayActive    = $607A     ; Players4P lo pone a 30; ReadPads4 lo baja. <> 0 = partida en marcha
+                          ; (lo lee la web para avisar "pulsa START para entrar")

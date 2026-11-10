@@ -3,6 +3,7 @@
 ; Generado por tools/disasm.py. Las etiquetas L_ son código, D_ son datos.
 ; ============================================================
 .include "nes.inc"
+.include "ram4p.inc"
 ; Las etiquetas del banco fijo (L_xxxx) son visibles desde aquí.
 .base $8000
 
@@ -2007,8 +2008,7 @@ L1_AECC:
     ldy $07                     ; AECC  A4 07
     bmi L1_AEE2                 ; AECE  30 12
     ldx $05                     ; AED0  A6 05
-    dex                         ; AED2  CA
-    bpl L1_AEB3                 ; AED3  10 DE
+    jmp R4P_Next                ; AED2  CA 10 DE  [4P] antes: dex / bpl L1_AEB3
     ldx $04                     ; AED5  A6 04
 
 L1_AED7:
@@ -2474,5 +2474,41 @@ D1_B12F:
     .byte $F4,$F0,$FC,$40,$EC,$00,$E8,$40,$04,$00,$EA,$40,$FC,$00,$EC,$40
     .byte $F4,$05,$00,$63,$03,$00,$00,$65,$03,$08,$00,$65,$03,$10,$00,$65
     .byte $03,$18,$00,$89,$03,$20
-; --- espacio libre: 539 bytes ($BDE5-$BFFF) ---
+; ------------------------------------------------------------
+; [4P] Dibujar J3/J4 (guardados en Ctx34) después de los 26 objetos de la tabla.
+; Sustituye a "dex / bpl L1_AEB3" al final del bucle de L1_AE9D.
+; ------------------------------------------------------------
+R4P_Next:
+    dex
+    bpl R4P_Loop
+    lda FourScoreOn
+    beq R4P_Fill
+    ldx #$01
+R4P_Extra:
+    stx $05
+    lda Ctx_Spr,x
+    beq R4P_Skip
+    ldy Ctx_Attr,x
+    sty $00
+    ldy Ctx_Y,x
+    sty $01
+    ldy Ctx_X,x
+    sty $02
+    jsr L1_AEE3
+R4P_Skip:
+    ldy $07
+    bmi R4P_Full                ; OAM llena (como el original)
+    ldx $05
+    dex
+    bpl R4P_Extra
+R4P_Fill:
+    ldy $07
+    ldx $04
+    jmp L1_AED7                 ; rellenar el resto de la OAM (original)
+R4P_Full:
+    rts
+R4P_Loop:
+    jmp L1_AEB3
+
+; --- espacio libre (lo que quede hasta $C000) ---
 .org $C000, $FF

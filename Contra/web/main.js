@@ -14,7 +14,7 @@ const ui = {
   playLocal: $("play-local"), netCreate: $("net-create"), joinForm: $("join-form"), joinCode: $("join-code"),
   lobbyCode: $("lobby-code"), copyLink: $("copy-link"), myName: $("my-name"), myLocal: $("my-local"),
   lobbyList: $("lobby-list"), lobbyMsg: $("lobby-msg"), lobbyStart: $("lobby-start"), lobbyLeave: $("lobby-leave"),
-  wait: $("wait"), waitMsg: $("wait-msg"), waitLeave: $("wait-leave"),
+  wait: $("wait"), waitMsg: $("wait-msg"), waitLeave: $("wait-leave"), hint: $("hint"),
   info: $("info"), touch: $("touch"), help: $("help"),
   mute: $("btn-mute"), helpBtn: $("btn-help"), fullscreen: $("btn-fullscreen"),
 };
@@ -235,6 +235,29 @@ function netStatus(now, ran) {
   }
   ui.wait.hidden = !(stalled || netState.left);
   ui.waitLeave.hidden = !netState.left;
+  if ((netState.hintTick = (netState.hintTick ?? 0) + 1) % 15 === 0) updateHint(ls.localSlots);
+}
+
+// Aviso para los jugadores de este dispositivo que todavía no están en la partida.
+// Direcciones de la ROM (src/ram4p.inc): $38/$39 = J1/J2 fuera; Ctx_Over $606E/$606F = J3/J4 fuera;
+// PlayActive $607A <> 0 mientras la lógica de jugadores se ejecuta (no en título ni presentación).
+const START_KEYS = ["H o Enter", "- (guion)"];
+function updateHint(localSlots) {
+  const m = core.mem;
+  const inGame = m[0x607a] !== 0;
+  const msgs = [];
+  if (inGame) {
+    localSlots.forEach((slot, i) => {
+      const key = matchMedia("(pointer: coarse)").matches ? "START" : START_KEYS[i];
+      if (slot >= 2 && (rom.manifest.players ?? 2) >= 4 && m[0x606e + slot - 2] !== 0) {
+        msgs.push(`J${slot + 1}: pulsa START (${key}) para entrar`);
+      } else if (slot === 1 && m[0x39] !== 0 && m[0x22] === 0) {
+        msgs.push("J2 no está en esta partida: el anfitrión eligió 1 PLAYER");
+      }
+    });
+  }
+  ui.hint.textContent = msgs.join(" · ");
+  ui.hint.hidden = msgs.length === 0;
 }
 
 // ------------------------------------------------------------------ bucle
@@ -298,6 +321,7 @@ function tick(now) {
       const ls = session.lockstep;
       const pings = [...session.pings.values()];
       if (pings.length) parts.unshift(`ping ${Math.max(...pings)} ms · retardo ${ls.delay}`);
+      parts.unshift(`tú: ${ls.localSlots.map((s) => `J${s + 1}`).join("+")}`);
       if (ls.desyncFrame !== null) parts.unshift(`⚠ desincronizado (f${ls.desyncFrame})`);
     }
     const pads = input.gamepads().length;

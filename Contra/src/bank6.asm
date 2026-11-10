@@ -3,6 +3,7 @@
 ; Generado por tools/disasm.py. Las etiquetas L_ son código, D_ son datos.
 ; ============================================================
 .include "nes.inc"
+.include "ram4p.inc"
 ; Las etiquetas del banco fijo (L_xxxx) son visibles desde aquí.
 .base $8000
 
@@ -1136,10 +1137,12 @@ L6_B567:
     ldx #$0A                    ; B567  A2 0A
 
 L6_B569:
-    sta $00                     ; B569  85 00
-    ldy $11                     ; B56B  A4 11
-    bne L6_B571                 ; B56D  D0 02
-    ldx #$00                    ; B56F  A2 00
+    jsr BulletBase4P            ; B569  [4P] antes: sta $00 / ldy $11 / bne L6_B571 / ldx #$00
+    nop
+    nop
+    nop
+    nop
+    nop
 
 L6_B571:
     lda $0388,x                 ; B571  BD 88 03
@@ -1608,5 +1611,28 @@ L6_BBE8:
     .byte $68,$03,$A9,$40,$C0,$04,$90,$02,$A9,$00,$9D,$78,$03,$60,$40,$50
     .byte $60,$74,$8C,$A0,$B0,$C0,$92,$84,$83,$82,$23,$82,$83,$84,$92,$DE
     .byte $18,$04,$D0,$03,$4C,$CD,$E3,$60
-; --- espacio libre: 730 bytes ($BD26-$BFFF) ---
+; ------------------------------------------------------------
+; [4P] Primer hueco de bala que prueba cada jugador (todos comparten los 16).
+; Original: J1 desde 0 y J2 desde X (10, o 6 con el arma de dispersión).
+; En la pasada de J3/J4: J3 desde 2 y J4 desde 4 (+ hasta 10 huecos: nunca pasa de 15).
+; Sale con Y = $11 como el original.
+; ------------------------------------------------------------
+BulletBase4P:
+    sta $00
+    ldy $11
+    lda Pass34
+    bne BB4_34
+    tya
+    bne BB4_done
+    ldx #$00
+BB4_done:
+    rts
+BB4_34:
+    ldx #$02
+    tya
+    beq BB4_done
+    ldx #$04
+    rts
+
+; --- espacio libre (lo que quede hasta $C000) ---
 .org $C000, $FF
