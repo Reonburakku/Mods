@@ -2877,8 +2877,10 @@ L_D4C3:
     tay                         ; D4CC  A8
     lda D_D524,y                ; D4CD  B9 24 D5
     sta $031A,x                 ; D4D0  9D 1A 03
-    lda D_D52C,y                ; D4D3  B9 2C D5
-    sta $0334,x                 ; D4D6  9D 34 03
+    jsr SpawnX4P                ; D4D3  B9 2C D5  [4P] antes: lda D_D52C,y / sta $0334,x
+    nop
+    nop
+    nop
     lda #$01                    ; D4D9  A9 01
     sta $A0,x                   ; D4DB  95 A0
     lda $40                     ; D4DD  A5 40
@@ -7894,9 +7896,6 @@ P4_68:
     lda Ctx34+$12               ; $A2/$A3 de J1/J2 (están en el contexto)
     ora Ctx34+$13
     sta PushA
-    lda $40                     ; solo en niveles horizontales (como L_D42C)
-    ora $41
-    bne P4_noshiftB
     lda PushA
     beq P4_noshiftB
     lda PushB
@@ -7912,9 +7911,6 @@ P4_noshiftB:
     sta $F5
     lda SaveF1+3
     sta $F6
-    lda $40
-    ora $41
-    bne P4_end
     lda PushB
     beq P4_end
     lda PushA
@@ -7923,21 +7919,40 @@ P4_noshiftB:
 P4_end:
     rts
 
-; Desplaza 1 píxel a la izquierda a los jugadores cargados (X=0/1) que estén en juego.
+; La pantalla avanza empujada por la otra pareja: desplaza a los jugadores cargados
+; (X=0/1) que estén en juego, igual que L_D42C hace con el compañero:
+;   horizontal ($40=0, $41=0): 1 píxel a la izquierda
+;   cascada    ($41<>0, $75=0): $68 píxeles hacia abajo (si se salen por abajo, caen)
+;   base       ($40<>0): nada (pantallas fijas)
 ShiftLivePair:
+    lda $40
+    bne SLP_end
     ldx #$01
 SLP_loop:
     lda $38,x
     bne SLP_next
     lda $0300,x
     beq SLP_next
+    lda $41
+    bne SLP_vert
     lda $0334,x
     cmp #$10
     bcc SLP_next
     dec $0334,x
+    jmp SLP_next
+SLP_vert:
+    lda $75
+    bne SLP_next
+    lda $031A,x
+    clc
+    adc $68
+    sta $031A,x
+    bcc SLP_next
+    inc $BA,x
 SLP_next:
     dex
     bpl SLP_loop
+SLP_end:
     rts
 
 ; Intercambia el estado de la pareja cargada con el de Ctx34.
@@ -8010,6 +8025,37 @@ J34_loop:
 J34_next:
     dex
     bpl J34_loop
+    rts
+
+; X de aparición (sustituye a "lda D_D52C,y / sta $0334,x" en L_D4C3).
+; En la pasada de J3/J4 se separan de J1/J2 (si no, en la base aparecen encima):
+; J3 24 píxeles a la izquierda de donde aparece J1 y J4 24 a la derecha de J2.
+SpawnX4P:
+    lda D_D52C,y
+    pha
+    lda Pass34
+    beq SX_plain
+    pla
+    cpx #$00
+    bne SX_j4
+    sec
+    sbc #24
+    bcc SX_min
+    cmp #$10
+    bcs SX_store
+SX_min:
+    lda #$10
+    bne SX_store
+SX_j4:
+    clc
+    adc #24
+    bcc SX_store
+    lda #$F0
+    bne SX_store
+SX_plain:
+    pla
+SX_store:
+    sta $0334,x
     rts
 
 ; Game over solo cuando no queda nadie: sustituye a "lda $38 / and $39" (CEF1).

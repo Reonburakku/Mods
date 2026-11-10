@@ -163,4 +163,41 @@ console.log(`      X J1 ${c.ram(0x334)}, J2 ${c.ram(0x335)}, J3 ${ctx(Ctx_X, 0)}
   g.screenshot("tests/out/4p-continuar.png");
 }
 
+// Empezar en otro nivel (Contra no tiene selector): se mantiene $30 durante la presentación
+function startAtStage(stage) {
+  const g = new TestConsole("build/contra.nes");
+  g.core.nes.setOverclock(60); g.core.overclock = 60;
+  g.run(240); g.press(0, BTN.START, 4, 60); g.press(0, BTN.SELECT, 4, 20); g.run(4, [BTN.START, 0, 0, 0]);
+  for (let i = 0; i < 700; i++) { if (g.ram(0x2c) < 2) g.nes.cpu.mem[0x30] = stage; g.frame([0, 0, 0, 0]); }
+  g.run(4, [0, 0, BTN.START, BTN.START]);
+  return g;
+}
+
+// Base (nivel 2): J3/J4 aparecen separados de J1/J2 (si no, se taparían)
+{
+  const g = startAtStage(1);
+  g.run(60);
+  const x = [g.ram(0x334), g.ram(0x335), g.ram(Ctx_X), g.ram(Ctx_X + 1)];
+  console.log(`      base: X de aparición J1-J4: ${x.join(", ")}`);
+  check(g.ram(0x40) !== 0 && x[2] === x[0] - 24 && x[3] === x[1] + 24, "en la base J3/J4 aparecen a 24 píxeles de J1/J2");
+}
+
+// Cascada (nivel 3): si solo J3/J4 hacen subir la pantalla, J1/J2 bajan con ella
+{
+  const g = startAtStage(2);
+  g.run(150);
+  let r = 5;
+  const rnd = () => ((r = (r * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const held = [0, 0, 0, 0];
+  let pushB = 0, j1down = 0;
+  for (let i = 0; i < 2400; i++) {
+    for (const p of [2, 3]) if (rnd() < 0.15) held[p] = BTN.UP | BTN.B | (rnd() < 0.6 ? BTN.A : 0) | (rnd() < 0.3 ? BTN.LEFT : rnd() < 0.5 ? BTN.RIGHT : 0);
+    const y = g.ram(0x31a);
+    g.frame(held);
+    if (g.ram(0x6079) && !g.ram(0x6078)) { pushB++; if (g.ram(0x31a) > y) j1down++; }
+  }
+  console.log(`      cascada: ${pushB} fotogramas empujando solo J3/J4; en ${j1down} J1 bajó`);
+  check(g.ram(0x41) !== 0 && pushB > 0 && j1down > 0, "en la cascada J3/J4 hacen subir la pantalla y J1/J2 bajan con ella");
+}
+
 process.exitCode = fails ? 1 : 0;

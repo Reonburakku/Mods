@@ -48,9 +48,13 @@ El juego se ejecutará en nuestro emulador web (ver [arquitectura.md](arquitectu
      - El game over solo llega cuando están fuera los cuatro (`AllOut4P`, en `$CEF1`).
      - Para pasar de nivel tras el jefe también cuentan J3/J4 vivos (`CountAlive4P`, en `$D011`).
 
+   - **Cascada y base** (0.1.7):
+     - En la cascada, si una pareja hace subir la pantalla, los de la otra bajan `$68` píxeles (como hace `L_D42C` con el compañero) y, si se quedan atrás, caen.
+     - En la base no hay desplazamiento. J3/J4 aparecen 24 píxeles a los lados de J1/J2 (`SpawnX4P`) para no taparse.
+     - Para probar un nivel concreto, las pruebas mantienen `$30` (nivel) durante la presentación.
+
    **Pendiente**:
    - Sus puntos se atribuyen a J1/J2 (el dueño de la bala es el índice 0/1).
-   - Niveles verticales (cascada, `$41`) y base (`$40`): no está hecho el scroll entre parejas.
    - El robo de vidas (A tras game over) solo funciona dentro de cada pareja.
 5. **Bucles de jugadores de 0-1 a 0-3** y máscaras de jugadores vivos de 4 bits.
 6. **Jugadores 3 y 4 en pantalla:** reparto de los 64 sprites de OAM, paletas compartidas (solo hay 4 paletas de sprites), balas y colisiones.
