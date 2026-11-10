@@ -7841,6 +7841,7 @@ P4_off:
 P4_go:
     lda #30                     ; señal "partida en marcha" para la web
     sta PlayActive
+    jsr StealCross              ; J1/J2 fuera: pedir vida a J3/J4 (en el contexto)
     lda $2F                     ; resultados compartidos de la pasada 1
     sta Comb2F
     lda $8E
@@ -7868,6 +7869,7 @@ P4_go:
     sta Pass34
     jsr Join34
     jsr L_D3B4
+    jsr StealCross              ; J3/J4 fuera: pedir vida a J1/J2 (en el contexto)
     lda $83                     ; Collide34 usa $83 (enemigo en curso): conservarlo
     pha
     jsr Collide34
@@ -7953,6 +7955,79 @@ SLP_next:
     dex
     bpl SLP_loop
 SLP_end:
+    rts
+
+; Robo de vidas entre parejas. El original (L_D3B4, $D3E6) solo deja quitarle una vida
+; al compañero de pareja. Si después de eso un jugador cargado (X=0/1) sigue fuera y
+; pulsa A, se prueba con los de la otra pareja (Ctx34), con las mismas condiciones:
+; el donante juega, tiene vidas y, si le queda justo una, está de pie ($90 = 1).
+; Solo pide quien ha jugado esta partida: J1 siempre, J2 en partidas de 2, J3/J4 si entraron.
+StealCross:
+    lda $2C
+    cmp #$04
+    bne SCx_end
+    ldx #$01
+SCx_loop:
+    lda $38,x
+    beq SCx_next
+    lda $F5,x
+    and #PAD_A
+    beq SCx_next
+    lda Pass34
+    bne SCx_j34
+    cpx #$00
+    beq SCx_ok
+    lda $22
+    beq SCx_next
+    bne SCx_ok
+SCx_j34:
+    lda Joined34,x
+    beq SCx_next
+SCx_ok:
+    lda #$FF                    ; donante = el que tenga más vidas (empate: el de índice 0)
+    sta ScoreTmp
+    ldy #$01
+SCy_loop:
+    lda Ctx_Over,y
+    bne SCy_next
+    lda Ctx_Lives,y
+    beq SCy_next
+    cmp #$01
+    bne SCy_cand
+    lda Ctx34,y                 ; $90 del donante
+    cmp #$01
+    bne SCy_next
+SCy_cand:
+    lda ScoreTmp
+    bmi SCy_take
+    tya
+    pha
+    ldy ScoreTmp
+    lda Ctx_Lives,y
+    sta PushA                   ; (temporal) vidas del candidato anterior
+    pla
+    tay
+    lda Ctx_Lives,y
+    cmp PushA
+    bcc SCy_next
+SCy_take:
+    sty ScoreTmp
+SCy_next:
+    dey
+    bpl SCy_loop
+    ldy ScoreTmp
+    bmi SCx_next
+    lda Ctx_Lives,y
+    sec
+    sbc #$01
+    sta Ctx_Lives,y
+    jsr L_DAD1                  ; como el original: reiniciar al jugador X (A=0 al volver)
+    sta $90,x
+    sta $38,x
+SCx_next:
+    dex
+    bpl SCx_loop
+SCx_end:
     rts
 
 ; Intercambia el estado de la pareja cargada con el de Ctx34.

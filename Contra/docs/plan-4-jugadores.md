@@ -58,9 +58,17 @@ El juego se ejecutará en nuestro emulador web (ver [arquitectura.md](arquitectu
      - `Score4P` (entradas de `L_C4A0`/`L_C4A8`) suma los de J3/J4 en `Score34`, con su vida extra (`Thresh34`) y el récord.
      - La web muestra los 4 marcadores debajo de la pantalla, porque el marcador del juego solo tiene sitio para 1P/2P.
 
-   **Pendiente**:
-   - El robo de vidas (A tras game over) solo funciona dentro de cada pareja.
-5. **Bucles de jugadores de 0-1 a 0-3** y máscaras de jugadores vivos de 4 bits.
-6. **Jugadores 3 y 4 en pantalla:** reparto de los 64 sprites de OAM, paletas compartidas (solo hay 4 paletas de sprites), balas y colisiones.
-7. **Reglas de juego:** aparición, muertes, robo de vidas, game over, continuar, scroll (quién empuja la pantalla) y el nivel en vista trasera (base).
-8. **Menú** de 1-4 jugadores y HUD de vidas para 4.
+   - **Robo de vidas entre parejas** (0.1.9, `StealCross`):
+     - Si el compañero de pareja no puede dar una vida (el original, `$D3E6`), quien está fuera y pulsa A la recibe del jugador de la otra pareja con más vidas.
+     - Se aplican las mismas condiciones del original para el donante.
+     - Solo puede pedir quien ha jugado esa partida.
+
+   **Pendiente**: nada de la lista inicial. Ideas para más adelante:
+   - Rollback en el juego en red (controles sin retardo).
+   - Estado binario rápido del emulador.
+   - Marcador de J3/J4 dentro del propio juego (pantalla de pausa y de game over).
+
+5. ✅ **Bucles de jugadores de 0-1 a 0-3**: resuelto por el intercambio de contexto (fase 4), sin tocar los bucles originales.
+6. ✅ **Jugadores 3 y 4 en pantalla** (fase 4: sprites, colores, balas, colisiones). Planteamiento inicial: reparto de los 64 sprites de OAM, paletas compartidas (solo hay 4 paletas de sprites), balas y colisiones.
+7. ✅ **Reglas de juego** (fase 4). Planteamiento inicial: aparición, muertes, robo de vidas, game over, continuar, scroll (quién empuja la pantalla) y el nivel en vista trasera (base).
+8. ✅ **Menú y HUD**: J3/J4 entran con START durante la partida (no hace falta menú) y la web muestra puntos y vidas de los 4.

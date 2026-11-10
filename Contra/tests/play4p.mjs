@@ -188,6 +188,51 @@ console.log(`      X J1 ${c.ram(0x334)}, J2 ${c.ram(0x335)}, J3 ${ctx(Ctx_X, 0)}
   console.log(`      puntos J1-J4 (x100): ${results.join(" · ")}`);
 }
 
+// Robo de vidas (A estando fuera): dentro de la pareja como el original y, si el compañero
+// no puede dar, a la otra pareja
+{
+  const setup = (joinJ34 = true) => {
+    const g = new TestConsole("build/contra.nes");
+    g.run(240); g.press(0, BTN.START, 4, 60); g.press(0, BTN.SELECT, 4, 20); g.press(0, BTN.START, 4, 600);
+    if (joinJ34) { g.run(4, [0, 0, BTN.START, BTN.START]); g.run(120); }
+    return g;
+  };
+  const pressA = (g, slot) => { const inp = [0, 0, 0, 0]; inp[slot] = BTN.A; g.run(2, inp); g.run(30); };
+  const m = (g) => g.nes.cpu.mem;
+  // J1 fuera y J2 sin vidas que dar: J1 recibe una vida de J3
+  {
+    const g = setup();
+    m(g)[0x38] = 1; m(g)[0x32] = 0; m(g)[0x33] = 0;
+    m(g)[Ctx_Lives] = 2;
+    pressA(g, 0);
+    check(g.ram(0x38) === 0 && g.ram(Ctx_Lives) === 1, "J1 fuera pide vida con A y se la da J3");
+  }
+  // J3 fuera y J4 sin vidas que dar: J3 recibe una vida de J1
+  {
+    const g = setup();
+    m(g)[Ctx_Over] = 1; m(g)[Ctx_Lives] = 0; m(g)[Ctx_Lives + 1] = 0;
+    m(g)[0x32] = 2;
+    pressA(g, 2);
+    check(g.ram(Ctx_Over) === 0 && g.ram(0x32) === 1, "J3 fuera pide vida con A y se la da J1");
+  }
+  // J3 sin haber entrado nunca: no puede pedir vida
+  {
+    const g = setup(false);
+    m(g)[0x32] = 2;
+    pressA(g, 2);
+    check(g.ram(Ctx_Over) === 1 && g.ram(0x32) === 2, "J3 sin haber entrado no puede pedir vida");
+  }
+  // Dentro de la pareja manda el original: J2 fuera pide a J1 y J3/J4 no pierden nada
+  {
+    const g = setup();
+    m(g)[0x39] = 1; m(g)[0x33] = 0; m(g)[0x32] = 2;
+    m(g)[Ctx_Lives] = 2; m(g)[Ctx_Lives + 1] = 2;
+    pressA(g, 1);
+    check(g.ram(0x39) === 0 && g.ram(0x32) === 1 && g.ram(Ctx_Lives) === 2 && g.ram(Ctx_Lives + 1) === 2,
+      "J2 fuera recibe la vida de J1 (como el original) sin tocar a J3/J4");
+  }
+}
+
 // Empezar en otro nivel (Contra no tiene selector): se mantiene $30 durante la presentación
 function startAtStage(stage) {
   const g = new TestConsole("build/contra.nes");
