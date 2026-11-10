@@ -39,16 +39,17 @@ export class LocalInput {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target;
     if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement) return;
-    const p1 = KEYS_P1[e.code], p2 = KEYS_P2[e.code];
+    const code = e.code || codeFromKey(e.key);
+    const p1 = KEYS_P1[code], p2 = KEYS_P2[code];
     if (p1 === undefined && p2 === undefined) return;
     if (!this.enabled) return;
     e.preventDefault();               // que las flechas no desplacen la página
     if (down) {
-      this.pressed.add(e.code);
+      this.pressed.add(code);
       this.latched[0] |= p1 ?? 0;
       this.latched[1] |= p2 ?? 0;
     } else {
-      this.pressed.delete(e.code);
+      this.pressed.delete(code);
     }
     let a = 0, b = 0;
     for (const code of this.pressed) {
@@ -71,6 +72,12 @@ export class LocalInput {
   gamepads() {
     return navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean).map((p) => p.id) : [];
   }
+}
+
+/** Algunos teclados virtuales o herramientas no rellenan event.code: deducirlo del carácter. */
+function codeFromKey(key = "") {
+  if (/^[a-z]$/i.test(key)) return `Key${key.toUpperCase()}`;
+  return { ",": "Comma", ".": "Period", "-": "Slash", "/": "Slash", Enter: "Enter" }[key] ?? key;
 }
 
 function readPad(pad) {

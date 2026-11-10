@@ -6,6 +6,7 @@
 // - Durante la partida solo viajan los mensajes de Lockstep ("in" y "h").
 import { joinRoom, selfId } from "./vendor/trystero-nostr/index.mjs";
 import { Lockstep, recommendedDelay } from "./lockstep.js";
+import { TURN_SERVERS, LOCAL_LOOPBACK } from "../config.js";
 
 const APP_ID = "contra4p-netplay-v1";
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // sin O/0, I/1
@@ -26,6 +27,14 @@ export function netplaySupported() {
     return "El juego en red necesita una conexión segura: abre la página con https:// (o en localhost).";
   }
   return null;
+}
+
+function connectionHelp(error) {
+  if (/after exchanging SDP/.test(error)) {
+    return "No se pudo establecer la conexión directa entre los dos navegadores. " +
+      "Prueba sin VPN, en otra red, o configura un servidor TURN (?turn=turn:host:3478|usuario|clave).";
+  }
+  return `No se pudo entrar en la sala: ${error}`;
 }
 
 export class NetSession {
@@ -54,8 +63,14 @@ export class NetSession {
     this.onPeerLeft = () => {};     // (peerId, name) se ha ido alguien
     this.onError = () => {};
 
-    this.room = joinRoom({ appId: APP_ID, password: code }, code, {
-      onJoinError: (e) => this.onError(`No se pudo entrar en la sala: ${e.error}`),
+    this.room = joinRoom({
+      appId: APP_ID,
+      password: code,
+      turnConfig: TURN_SERVERS,
+      // opción interna de Trystero 0.26 (vendor fijado): candidatos "*.local" -> 127.0.0.1
+      _test_only_mdnsHostFallbackToLoopback: LOCAL_LOOPBACK,
+    }, code, {
+      onJoinError: (e) => this.onError(connectionHelp(e.error)),
     });
     this.ctl = this.room.makeAction("ctl");
     this.net = this.room.makeAction("game");
@@ -168,8 +183,12 @@ export class NetSession {
   // ------------------------------------------------------------------ partida
   /** Envía las entradas pendientes y, si lo hay, un hash. */
   flush(hashMsg = null) {
-    for (const [peer, m] of this.lockstep.outgoing()) this.net.send(m, { target: peer }).catch(() => {});
-    if (hashMsg) this.net.send(hashMsg, { target: this.lockstep.peers }).catch(() => {});
+    // solo a los dispositivos que siguen conectados (tras una desconexión no hay a quién enviar)
+    for (const [peer, m] of this.lockstep.outgoing()) {
+      if (this.peers.has(peer)) this.net.send(m, { target: peer }).catch(() => {});
+    }
+    const live = this.lockstep.peers.filter((p) => this.peers.has(p));
+    if (hashMsg && live.length) this.net.send(hashMsg, { target: live }).catch(() => {});
   }
 
   nameOf(peerId) { return this.peers.get(peerId)?.name ?? "?"; }
