@@ -115,3 +115,16 @@ Después, en `web/config.js`, poner `ROM_BASE_URL` a `https://MI_CUENTA.blob.cor
 Juego en red: en el menú, "Crear partida en red" genera un código de sala y un enlace para compartir. Los demás se unen con el código o abriendo el enlace, y el anfitrión pulsa "Empezar". Necesita `https://` o `localhost` (no funciona por `http://<IP>`). Las pruebas de red se ejecutan con `npm run test:net`.
 
 Controles: jugador 1 con W A S D, J (disparar) y K (saltar), G (Select) y H o Enter (Start). Jugador 2 con flechas, coma, punto, M y guion. Mandos: el primero es el jugador 1. En móvil aparecen controles táctiles.
+
+## Publicar en GitHub Pages
+
+La web se publica en https://reonburakku.github.io/Mods/Contra4P/. La rama `gh-pages` tiene una carpeta por juego y una portada común (`pages/` en la raíz del repositorio, con la lista de juegos).
+
+1. Sube la ROM nueva al blob y actualiza `ROM_MANIFEST` en `web/config.js`.
+2. Confirma los cambios (se publica lo que hay en `HEAD`).
+3. Desde la raíz del repositorio:
+   ```
+   python tools/publish_pages.py Contra/web Contra4P --push
+   ```
+
+El script reemplaza solo `Contra4P/` y los archivos de `pages/`; las carpetas de otros juegos no se tocan. Para añadir un juego nuevo, publícalo con su propia carpeta y añade su enlace en `pages/index.html`.
