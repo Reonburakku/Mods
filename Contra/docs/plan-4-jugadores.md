@@ -40,8 +40,10 @@ El juego se ejecutará en nuestro emulador web (ver [arquitectura.md](arquitectu
    - Coste: sin overclock, un 7,4 % de fotogramas lentos con 4 jugadores en juego intenso (0,1 % con 2). Cada intercambio de contexto cuesta unos 2.100 ciclos.
    - **Overclock del emulador** (`Core({overclock})`, fork de jsnes): repite la última línea de VBlank N veces. Con **60 líneas, 0 % de fotogramas lentos** y la emulación sigue a ~660 fps. Va en el manifiesto de la ROM (`overclock: 60`, `release.py --overclock`); en red lo fija el anfitrión al dar la salida. Comprobado: sigue siendo determinista (también guardando y cargando estado) y el audio mantiene las muestras por fotograma.
 
+   - **Colores propios** (J3 verde, J4 amarillo) con una extensión cosmética del emulador: la ROM marca en `$5000-$503F` qué entradas del OAM son de J3/J4 (`MarkExtPal`, banco 1) y define los colores en `$5040+`. El emulador copia esas marcas con la DMA de OAM y dibuja esos sprites con su paleta extra. En una NES real esas escrituras se ignoran y J3/J4 se verían como J1/J2.
+   - **Sin límite de 8 sprites por línea** en el emulador (solo la imagen; la simulación es idéntica, comprobado).
+
    **Pendiente**:
-   - J3/J4 tienen los mismos colores que J1/J2.
    - Sus puntos se atribuyen a J1/J2 (el dueño de la bala es el índice 0/1).
    - Pueden volver a entrar con START tras su game over (continuaciones infinitas), y el game over general solo mira a J1/J2.
    - Niveles verticales (cascada, `$41`) y base (`$40`): no está hecho el scroll entre parejas.

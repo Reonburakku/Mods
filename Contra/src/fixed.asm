@@ -7680,6 +7680,12 @@ RP4_clear:
     lda #$01                    ; J3/J4 fuera de la partida
     sta Ctx_Over
     sta Ctx_Over+1
+    ldx #$06                    ; colores de las paletas extra (J3 verde, J4 amarillo)
+RP4_pal:
+    lda ExtColorTable,x
+    sta ExtPalColors+5,x
+    dex
+    bpl RP4_pal
     lda #$C4
     sta Ram4Magic
     lda #$4A
@@ -7749,6 +7755,11 @@ RP4_out:
     dex
     bpl RP4_out
     rts
+
+; Paleta extra 1 (J3): piel, traje verde, contorno · paleta extra 2 (J4): piel, traje amarillo, contorno
+; (se copia a $5045-$504B: colores 1-3 de la paleta 1, un byte sin uso, colores 1-3 de la paleta 2)
+ExtColorTable:
+    .byte $37,$1A,$0F,$00,$36,$28,$0F
 
 ; Lee 24 bits de cada puerto: mando principal (J1/J2), mando extra (J3/J4) y firma.
 ; Sin adaptador Four Score, J3/J4 quedan a 0.

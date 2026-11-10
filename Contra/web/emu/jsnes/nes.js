@@ -171,6 +171,11 @@ class NES {
     this.romData = data;
   }
 
+  // [fork] Sin límite de 8 sprites por línea (solo cambia la imagen, no la simulación).
+  setSpriteLimit(limited) {
+    this.ppu.noSpriteLimit = !limited;
+  }
+
   // [fork] Overclock: "lines" líneas extra de VBlank por fotograma (0 = desactivado).
   // El audio se ajusta para generar las mismas muestras por fotograma.
   setOverclock(lines) {

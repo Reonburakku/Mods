@@ -12,12 +12,13 @@ En la web, la NES es un emulador que corre en la página y que controlamos por c
 
 | Límite de la NES original | En nuestra consola web |
 |---|---|
-| 8 sprites por línea (parpadeo) | Se desactiva en el emulador |
+| 8 sprites por línea (parpadeo) | Desactivado en el emulador (hecho; solo cambia la imagen) |
 | 2 KB de RAM | Añadimos 8 KB de RAM extra en `$6000-$7FFF` |
 | 128 KB de ROM | Se amplía a 256 KB (16 bancos UNROM) |
 | CPU lenta: ralentizaciones con mucha acción | Overclock: 60 líneas extra de VBlank (hecho; lo indica el manifiesto de la ROM y en red lo fija el anfitrión) |
 | 2 mandos | 4 mandos con el protocolo estándar del Four Score |
-| 64 sprites en total | Se mantiene al principio. Ampliable más adelante con una extensión propia si de verdad hace falta |
+| 64 sprites en total | Se mantiene |
+| 4 paletas de sprites | Paletas extra por sprite (extensión cosmética en `$5000-$507F`): J3 verde, J4 amarillo |
 
 **Regla de diseño:** el juego modificado solo usará cosas que existen en el hardware real (Four Score, RAM extra, más bancos). Las mejoras puramente de emulador (sin límite de sprites, overclock) son opciones, no requisitos. Así la ROM también se puede depurar en Mesen o FCEUX, y la lógica del juego no depende de un emulador concreto.
 

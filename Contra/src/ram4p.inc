@@ -43,3 +43,10 @@ PushA         = $6078     ; la pareja J1/J2 empujó la pantalla en este fotogram
 PushB         = $6079     ; la pareja J3/J4 empujó la pantalla
 PlayActive    = $607A     ; Players4P lo pone a 30; ReadPads4 lo baja. <> 0 = partida en marcha
                           ; (lo lee la web para avisar "pulsa START para entrar")
+
+; --- paletas extra de sprites (extensión del emulador web; en una NES real se ignora) ---
+ExtSprPal     = $5000     ; [64] paleta extra de cada entrada del OAM (0 = normal)
+ExtPalColors  = $5040     ; paleta extra n: colores en $5040 + 4*n + 1..3
+ExtStart      = $607B     ; temporales de MarkExtPal (banco 1)
+ExtCount      = $607C
+ExtPal        = $607D

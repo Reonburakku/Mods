@@ -52,6 +52,17 @@ for (let i = 0; i < 300; i++) {
 c.screenshot("tests/out/4p-3-todos.png");
 console.log(`      X J1 ${c.ram(0x334)}, J2 ${c.ram(0x335)}, J3 ${ctx(Ctx_X, 0)}, J4 ${ctx(Ctx_X, 1)}`);
 
+// Colores propios: los sprites de J3/J4 van marcados con las paletas extra 1 y 2, y con el
+// mismo dibujo que J1 (mismos tiles); sin límite de sprites la simulación no cambia
+{
+  const ext = c.nes.ppu.spriteExt, oam = c.nes.ppu.spriteMem;
+  const tiles = (p) => [...Array(64).keys()].filter((n) => ext[n] === p).map((n) => oam[n * 4 + 1]);
+  const t3 = tiles(1), t4 = tiles(2);
+  console.log(`      sprites con paleta extra: J3 ${t3.length}, J4 ${t4.length}`);
+  check(t3.length >= 3 && t4.length >= 3, "J3/J4 se dibujan con sus paletas extra (verde y amarillo)");
+  check(c.ram(0x5046) === 0x1a && c.ram(0x504a) === 0x28, "colores definidos por la ROM: traje verde $1A y amarillo $28");
+}
+
 // Solo J3 dispara: aparecen balas en la tabla compartida (tipo de bala en $0388,x)
 {
   const bullets = () => [...Array(16).keys()].filter((i) => c.ram(0x388 + i)).length;

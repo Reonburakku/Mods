@@ -90,4 +90,18 @@ for (const fourScore of [true, false]) {
   check(differs, "el overclock cambia la simulación (por eso todos los dispositivos deben usar el mismo valor)");
 }
 
+// 5. Quitar el límite de 8 sprites por línea solo cambia la imagen, no la simulación
+{
+  const rec = recording(3000, 55, { players: 2 });
+  const a = new Core(MODIFIED, { spriteLimit: true }), b = new Core(MODIFIED, { spriteLimit: false });
+  let same = true, imageDiffers = false;
+  for (let f = 0; f < rec.length && same; f++) {
+    a.frame(rec[f]); b.frame(rec[f]);
+    for (let i = 0; i < 0x800; i++) if (a.mem[i] !== b.mem[i]) { same = false; break; }
+    if (!imageDiffers) for (let i = 0; i < a.frameBuffer.length; i++) if (a.frameBuffer[i] !== b.frameBuffer[i]) { imageDiffers = true; break; }
+  }
+  check(same, "con y sin límite de sprites la RAM es idéntica (solo cambia la imagen)");
+  check(imageDiffers, "sin límite de sprites la imagen sí cambia (se dibujan los que antes se descartaban)");
+}
+
 process.exitCode = fails ? 1 : 0;

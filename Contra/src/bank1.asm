@@ -2483,6 +2483,12 @@ R4P_Next:
     bpl R4P_Loop
     lda FourScoreOn
     beq R4P_Fill
+    lda #$00                    ; borrar las marcas de paleta extra del fotograma anterior
+    ldx #$3F
+R4P_Clear:
+    sta ExtSprPal,x
+    dex
+    bpl R4P_Clear
     ldx #$01
 R4P_Extra:
     stx $05
@@ -2494,7 +2500,20 @@ R4P_Extra:
     sty $01
     ldy Ctx_X,x
     sty $02
+    lda $04                     ; desde dónde y cuántas entradas del OAM va a escribir
+    sta ExtStart
+    lda $07
+    sta ExtCount
+    lda Ctx_Spr,x               ; L1_AEE3 recibe en A el código de sprite
     jsr L1_AEE3
+    lda ExtCount
+    sec
+    sbc $07
+    sta ExtCount
+    lda $05                     ; J3 -> paleta extra 1, J4 -> paleta extra 2
+    clc
+    adc #$01
+    jsr MarkExtPal
 R4P_Skip:
     ldy $07
     bmi R4P_Full                ; OAM llena (como el original)
@@ -2509,6 +2528,28 @@ R4P_Full:
     rts
 R4P_Loop:
     jmp L1_AEB3
+
+; Marca con la paleta extra A las ExtCount entradas del OAM escritas desde ExtStart
+; (el dibujado avanza +$C4 por cada sprite, ver L1_B025).
+MarkExtPal:
+    sta ExtPal
+MEP_loop:
+    lda ExtCount
+    beq MEP_done
+    dec ExtCount
+    lda ExtStart
+    lsr a
+    lsr a
+    tax
+    lda ExtPal
+    sta ExtSprPal,x
+    lda ExtStart
+    clc
+    adc #$C4
+    sta ExtStart
+    jmp MEP_loop
+MEP_done:
+    rts
 
 ; --- espacio libre (lo que quede hasta $C000) ---
 .org $C000, $FF
