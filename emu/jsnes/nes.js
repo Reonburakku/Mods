@@ -29,9 +29,13 @@ class NES {
     this.gameGenie = new GameGenie();
     this.gameGenie.onChange = () => this.cpu._updateCartridgeLoader();
     this.mmap = null;
+    // [fork] Mandos 3 y 4 del adaptador Four Score (ver mapper0.js joy1Read/joy2Read)
+    this.fourScore = !!this.opts.fourScore;
     this.controllers = {
       1: new Controller(),
       2: new Controller(),
+      3: new Controller(),
+      4: new Controller(),
     };
 
     this.fpsFrameCount = 0;
@@ -185,6 +189,8 @@ class NES {
       controllers: {
         1: this.controllers[1].toJSON(),
         2: this.controllers[2].toJSON(),
+        3: this.controllers[3].toJSON(),
+        4: this.controllers[4].toJSON(),
       },
     };
   }
@@ -199,6 +205,8 @@ class NES {
     if (s.controllers) {
       if (s.controllers[1]) this.controllers[1].fromJSON(s.controllers[1]);
       if (s.controllers[2]) this.controllers[2].fromJSON(s.controllers[2]);
+      if (s.controllers[3]) this.controllers[3].fromJSON(s.controllers[3]);
+      if (s.controllers[4]) this.controllers[4].fromJSON(s.controllers[4]);
     }
   }
 }

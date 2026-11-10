@@ -24,8 +24,10 @@ export class Core {
    * @param {Uint8Array} rom
    * @param {{sampleRate?: number, onAudio?: (l: number, r: number) => void}} opts
    *   Sin onAudio no se emula el sonido (más rápido; no afecta al estado del juego).
+   *   fourScore: adaptador de 4 mandos conectado (un juego que lee solo 8 bits por
+   *   puerto, como el Contra original, funciona igual con o sin él).
    */
-  constructor(rom, { sampleRate = 48000, onAudio = null } = {}) {
+  constructor(rom, { sampleRate = 48000, onAudio = null, fourScore = true } = {}) {
     /** Imagen del último fotograma: 0xBBGGRR por píxel. */
     this.frameBuffer = new Uint32Array(WIDTH * HEIGHT);
     this.nes = new NES({
@@ -33,14 +35,15 @@ export class Core {
       onAudioSample: onAudio ?? (() => {}),
       emulateSound: !!onAudio,
       sampleRate,
+      fourScore,
     });
     this.nes.loadROM(rom);
     this.frameCount = 0;
   }
 
-  /** Avanza exactamente un fotograma. inputs[p] = byte BTN del jugador p (0-1 por ahora). */
+  /** Avanza exactamente un fotograma. inputs[p] = byte BTN del jugador p (0-3). */
   frame(inputs) {
-    for (let p = 0; p < 2; p++) {
+    for (let p = 0; p < 4; p++) {
       const state = this.nes.controllers[p + 1].state;
       const v = inputs[p] | 0;
       for (const [bit, key] of BIT_TO_KEY) state[key] = v & bit ? 0x41 : 0x40;

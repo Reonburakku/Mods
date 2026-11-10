@@ -6,3 +6,7 @@ carpeta `src/`, sin el directorio `browser/` (la interfaz es nuestra) ni los `.d
 Cambios respecto al original (anotar aquí cada modificación, como pide la licencia):
 
 - `index.js`: ya no exporta `Browser`.
+- `nes.js`: opción `fourScore` y mandos 3 y 4 (también en `toJSON`/`fromJSON`).
+- `mappers/mapper0.js`: lectura serie de `$4016`/`$4017` con el protocolo Four Score
+  (`_serialBit`). Sin `fourScore` se comporta como antes, salvo que tras 24 lecturas
+  ya no vuelve a empezar desde el bit 0 (en hardware real sigue devolviendo 1).

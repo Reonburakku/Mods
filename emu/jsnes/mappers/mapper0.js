@@ -334,6 +334,19 @@ class Mapper0 {
     }
   }
 
+  // [fork] Bit n (0-23) de la línea serie de un puerto.
+  // Sin Four Score: 8 bits del mando y después 1 (línea flotando a nivel alto).
+  // Con Four Score (https://www.nesdev.org/wiki/Four_Score): bits 0-7 mando principal,
+  // 8-15 mando extra (3 o 4) y 16-23 firma: $4016 -> 0,0,0,1,0,0,0,0 (bit 19);
+  // $4017 -> 0,0,1,0,0,0,0,0 (bit 18). A partir del bit 24, 1.
+  _serialBit(n, main, extra, signatureBit) {
+    const c = this.nes.controllers;
+    if (n < 8) return c[main].state[n];
+    if (!this.nes.fourScore || n >= 24) return 1;
+    if (n < 16) return c[extra].state[n - 8];
+    return n === signatureBit ? 0x41 : 0x40;
+  }
+
   joy1Read() {
     // Sync deferred output before checking strobe state
     this._syncJoypadOutput();
@@ -345,19 +358,9 @@ class Mapper0 {
       return this.nes.controllers[1].state[0];
     }
 
-    let ret;
-    if (this.joy1StrobeState < 8) {
-      ret = this.nes.controllers[1].state[this.joy1StrobeState];
-    } else {
-      // After 8 reads, the shift register is empty and the serial data
-      // line floats high, returning 1 on a standard NES controller.
-      ret = 1;
-    }
-
-    this.joy1StrobeState++;
-    if (this.joy1StrobeState === 24) {
-      this.joy1StrobeState = 0;
-    }
+    let ret = this._serialBit(this.joy1StrobeState, 1, 3, 19);
+    // [fork] Con Four Score se leen 24 bits (mando 1, mando 3, firma) y después 1
+    if (this.joy1StrobeState < 24) this.joy1StrobeState++;
 
     return ret;
   }
@@ -371,18 +374,8 @@ class Mapper0 {
       return this.nes.controllers[2].state[0];
     }
 
-    let ret;
-    if (this.joy2StrobeState < 8) {
-      ret = this.nes.controllers[2].state[this.joy2StrobeState];
-    } else {
-      // After 8 reads, the shift register is empty → returns 1.
-      ret = 1;
-    }
-
-    this.joy2StrobeState++;
-    if (this.joy2StrobeState === 24) {
-      this.joy2StrobeState = 0;
-    }
+    let ret = this._serialBit(this.joy2StrobeState, 2, 4, 18);
+    if (this.joy2StrobeState < 24) this.joy2StrobeState++;
 
     return ret;
   }
