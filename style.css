@@ -275,3 +275,40 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color:
 }
 .hint[hidden] { display: none; }
 @keyframes hint-pulse { from { opacity: 1; } to { opacity: .55; } }
+
+/* ---------------------------------------------------------------- marcadores */
+.scores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: min(100%, calc((100dvh - 90px) * 256 / 224));
+  font-variant-numeric: tabular-nums;
+}
+.scores[hidden] { display: none; }
+.scores li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--panel);
+  border-left: 4px solid var(--c);
+  font-size: 13px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.scores b { color: var(--c); }
+.scores .pts { margin-left: auto; }
+.scores .lives { color: var(--muted); font-size: 12px; }
+.scores li.out { opacity: .45; }
+.scores .p1 { --c: #5b8cff; }
+.scores .p2 { --c: #ff5b5b; }
+.scores .p3 { --c: #4cd964; }
+.scores .p4 { --c: #ffd23f; }
+@media (max-width: 420px) {
+  .scores { grid-template-columns: repeat(2, 1fr); }
+}
