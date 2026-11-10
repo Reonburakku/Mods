@@ -21,6 +21,7 @@ html, body {
 }
 
 #app {
+  --chrome: 90px;               /* alto de lo que no es pantalla: barra, márgenes */
   min-height: 100%;
   display: flex;
   flex-direction: column;
@@ -34,7 +35,7 @@ html, body {
 /* Pantalla: proporción 256x224 escalada sin suavizado (píxeles nítidos) */
 #stage {
   position: relative;
-  width: min(100%, calc((100dvh - 90px) * 256 / 224));
+  width: min(100%, calc((100dvh - var(--chrome)) * 256 / 224));
   aspect-ratio: 256 / 224;
   background: #000;
   border-radius: 4px;
@@ -111,7 +112,7 @@ button.big {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: min(100%, calc((100dvh - 90px) * 256 / 224));
+  width: min(100%, calc((100dvh - var(--chrome)) * 256 / 224));
 }
 #toolbar button { min-width: 40px; }
 #info { margin-left: auto; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -200,8 +201,8 @@ dialog p { color: var(--muted); }
 
 /* En móvil apaisado la pantalla ocupa el alto y los controles van a los lados */
 @media (pointer: coarse) {
-  #app { justify-content: flex-start; }
-  #stage { width: min(100%, calc((100dvh - 60px) * 256 / 224)); }
+  #app { justify-content: flex-start; --chrome: 60px; }
+  #stage { width: min(100%, calc((100dvh - var(--chrome)) * 256 / 224)); }
 }
 @media (pointer: coarse) and (orientation: portrait) {
   #app { padding-bottom: 210px; }
@@ -277,33 +278,40 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color:
 @keyframes hint-pulse { from { opacity: 1; } to { opacity: .55; } }
 
 /* ---------------------------------------------------------------- marcadores */
+/* Encima de la pantalla; el doble de alto que la barra original (fuente 26px). */
+#app:has(> .scores:not([hidden])) { --chrome: 154px; }
+@media (pointer: coarse) {
+  #app:has(> .scores:not([hidden])) { --chrome: 124px; }
+}
 .scores {
+  container-type: inline-size;
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  width: min(100%, calc((100dvh - 90px) * 256 / 224));
+  gap: 12px;
+  width: min(100%, calc((100dvh - var(--chrome)) * 256 / 224));
   font-variant-numeric: tabular-nums;
 }
 .scores[hidden] { display: none; }
 .scores li {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  gap: .45em;
+  padding: 8px 12px;
+  border-radius: 12px;
   background: var(--panel);
-  border-left: 4px solid var(--c);
-  font-size: 13px;
+  border-left: 8px solid var(--c);
+  font-size: min(26px, 2.6cqi);   /* se reduce si no cabe en una columna */
+  line-height: 1.4;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
 }
 .scores b { color: var(--c); }
 .scores .pts { margin-left: auto; }
-.scores .lives { color: var(--muted); font-size: 12px; }
+.scores .lives { color: var(--muted); font-size: .92em; }
 .scores li.out { opacity: .45; }
 .scores .p1 { --c: #5b8cff; }
 .scores .p2 { --c: #ff5b5b; }
@@ -311,4 +319,5 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color:
 .scores .p4 { --c: #ffd23f; }
 @media (max-width: 420px) {
   .scores { grid-template-columns: repeat(2, 1fr); }
+  .scores li { font-size: min(26px, 4.6cqi); padding: 6px 10px; }
 }
