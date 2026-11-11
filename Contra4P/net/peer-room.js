@@ -165,7 +165,9 @@ export function createPeerRoom({ appId, code, host, stun, turn = [], forceRelay 
       pending.delete(id);
       conn.close();
       if (fallback) { directFailure = diag; retryWithTurn(); }
-      else if (id === hostId || !everConnected) onJoinError({ error: "ice" });
+      // Solo el invitado informa de que no pudo entrar. El anfitrión descarta el intento
+      // fallido y sigue esperando (el invitado puede reintentar con el TURN).
+      else if (!host && id === hostId) onJoinError({ error: "ice", detail: diag });
     };
     const timer = setTimeout(() => giveUp("tiempo agotado"), fallback ? DIRECT_TIMEOUT_MS : CONNECT_TIMEOUT_MS);
     watchIce(conn, (state) => { if (state === "failed") giveUp("ICE failed"); });

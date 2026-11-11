@@ -67,11 +67,12 @@ export function netplaySupported() {
   return null;
 }
 
-function connectionHelp(error, hasTurn) {
+function connectionHelp(error, hasTurn, detail) {
   if (error === "ice") {
     return "No se pudo establecer la conexión entre los dos navegadores. " +
       "Prueba sin VPN o en otra red" +
-      (hasTurn ? "." : ", o configura un servidor TURN (?turn=turn:host:3478|usuario|clave).");
+      (hasTurn ? "." : ", o configura un servidor TURN (?turn=turn:host:3478|usuario|clave).") +
+      (detail ? ` Detalles: ${detail}.` : "");
   }
   if (error === "no-room") return "No hay ninguna sala con ese código (o el anfitrión ya la ha cerrado).";
   if (error === "room-taken") return "Ya hay una sala abierta con ese código. Crea otra partida.";
@@ -101,7 +102,7 @@ export class NetSession {
       stun: STUN_SERVERS,
       turn,
       forceRelay: FORCE_RELAY,
-      onJoinError: (e) => this.onError(connectionHelp(e.error, turn.length > 0)),
+      onJoinError: (e) => this.onError(connectionHelp(e.error, turn.length > 0, e.detail)),
     });
     this.hostId = host ? this.selfId : null;
     this.peers = new Map();         // peerId -> {name, local, sha1, version}
