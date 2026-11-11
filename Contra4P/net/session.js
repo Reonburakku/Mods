@@ -1,18 +1,24 @@
-// Capa 3 + sala: conexión entre navegadores (WebRTC vía Trystero) y protocolo de sala.
+// Capa 3 + sala: conexión entre navegadores (WebRTC vía PeerJS) y protocolo de sala.
 //
 // - Quien crea la sala es el anfitrión: reparte las plazas y da la salida.
-// - Todos se conectan con todos (malla); la señalización usa relays públicos de
-//   Nostr y después el tráfico va directo entre navegadores.
+// - Todos se conectan con todos (malla, ver peer-room.js); el servidor público de
+//   PeerJS solo sirve para encontrarse y después el tráfico va directo entre
+//   navegadores (o por el TURN si no hay ruta directa).
 // - Durante la partida solo viajan los mensajes de Lockstep ("in" y "h").
-import { joinRoom, selfId } from "./vendor/trystero-nostr/index.mjs";
+import { createPeerRoom } from "./peer-room.js";
 import { Lockstep, recommendedDelay } from "./lockstep.js";
-import { LOCAL_LOOPBACK, FORCE_RELAY } from "../config.js";
+import { FORCE_RELAY } from "../config.js";
 
-const APP_ID = "contra4p-netplay-v1";
+const APP_ID = "contra4p-reonburakku";     // prefijo de los ids en el servidor de PeerJS
+// STUN públicos (los mismos que PortNes): descubren la ruta directa entre navegadores.
+const STUN_SERVERS = [
+  { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+  { urls: "stun:stun.cloudflare.com:3478" },
+];
 // Canal propio para la partida, sin fiabilidad ni orden (como UDP): el lockstep ya
 // repite lo que falta, y un canal fiable se atasca con cualquier pérdida (sobre todo
 // a través de un TURN) y acumula segundos de retraso. Se negocia con un id fijo en la
-// misma conexión de Trystero, sin renegociar.
+// misma conexión WebRTC de PeerJS, sin renegociar.
 const FAST_CHANNEL_ID = 77;
 const RESEND_MS = 50;              // sin novedades: repetir cada 50 ms (pérdidas y confirmaciones)
 const MAX_BUFFERED = 8 * 1024;     // si el canal tiene esto pendiente, no añadir más
@@ -62,11 +68,14 @@ export function netplaySupported() {
 }
 
 function connectionHelp(error, hasTurn) {
-  if (/after exchanging SDP/.test(error)) {
-    return "No se pudo establecer la conexión directa entre los dos navegadores. " +
+  if (error === "ice") {
+    return "No se pudo establecer la conexión entre los dos navegadores. " +
       "Prueba sin VPN o en otra red" +
       (hasTurn ? "." : ", o configura un servidor TURN (?turn=turn:host:3478|usuario|clave).");
   }
+  if (error === "no-room") return "No hay ninguna sala con ese código (o el anfitrión ya la ha cerrado).";
+  if (error === "room-taken") return "Ya hay una sala abierta con ese código. Crea otra partida.";
+  if (error === "signaling") return "No se pudo contactar con el servidor de salas (PeerJS). Comprueba la conexión a Internet.";
   return `No se pudo entrar en la sala: ${error}`;
 }
 
@@ -85,8 +94,18 @@ export class NetSession {
     this.me = { ...me };
     this.maxPlayers = maxPlayers;
     this.overclock = overclock;     // solo cuenta el del anfitrión
-    this.selfId = selfId;
-    this.hostId = host ? selfId : null;
+    this.room = createPeerRoom({
+      appId: APP_ID,
+      code,
+      host,
+      rtcConfig: {
+        iceServers: [...STUN_SERVERS, ...turn],
+        ...(FORCE_RELAY ? { iceTransportPolicy: "relay" } : {}),
+      },
+      onJoinError: (e) => this.onError(connectionHelp(e.error, turn.length > 0)),
+    });
+    this.selfId = this.room.selfId;
+    this.hostId = host ? this.selfId : null;
     this.peers = new Map();         // peerId -> {name, local, sha1, version}
     this.players = [];              // lista de la sala (la decide el anfitrión)
     this.lockstep = null;
@@ -101,20 +120,6 @@ export class NetSession {
     this.onPeerLeft = () => {};     // (peerId, name) se ha ido alguien
     this.onError = () => {};
 
-    this.room = joinRoom({
-      appId: APP_ID,
-      password: code,
-      turnConfig: turn,
-      // Todas las rutas (candidatos ICE) dentro de la oferta, en un solo mensaje. Con
-      // candidatos sueltos ("trickle"), los relays de Nostr pueden perder o frenar alguno
-      // y entonces los navegadores no encuentran la ruta directa aunque exista.
-      trickleIce: false,
-      rtcConfig: FORCE_RELAY ? { iceTransportPolicy: "relay" } : undefined,
-      // opción interna de Trystero 0.26 (vendor fijado): candidatos "*.local" -> 127.0.0.1
-      _test_only_mdnsHostFallbackToLoopback: LOCAL_LOOPBACK,
-    }, code, {
-      onJoinError: (e) => this.onError(connectionHelp(e.error, turn.length > 0)),
-    });
     this.ctl = this.room.makeAction("ctl");
     this.net = this.room.makeAction("game");
     this.ctl.onMessage = (msg, { peerId }) => this.onCtl(peerId, msg);
