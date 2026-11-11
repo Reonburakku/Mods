@@ -216,6 +216,8 @@ function renderLobby(players) {
   } else {
     ui.lobbyMsg.textContent = others === 0 ? "Buscando a los demás jugadores…"
       : "Esperando a que el anfitrión empiece la partida.";
+    const why = session?.room.directFailure;
+    if (why) ui.lobbyMsg.textContent += ` El primer intento de conexión directa con el anfitrión falló y se reintentó con el servidor TURN (${why}).`;
   }
 }
 
