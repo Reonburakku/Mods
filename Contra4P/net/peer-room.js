@@ -16,7 +16,7 @@
 
 const SCRIPT_URL = new URL("./vendor/peerjs/peerjs.min.js", import.meta.url);
 const CONNECT_TIMEOUT_MS = 20000;
-const DIRECT_TIMEOUT_MS = 8000;   // sin conexión directa en este tiempo: reintentar con TURN
+const DIRECT_TIMEOUT_MS = 20000;  // como PortNes: la ruta directa puede tardar en abrirse
 const PING_TIMEOUT_MS = 5000;
 const MAX_BUFFERED = 1024 * 1024;
 
@@ -61,11 +61,14 @@ export function createPeerRoom({ appId, code, host, stun, turn = [], forceRelay 
   const pings = new Map();          // nonce -> {resolve, reject, t0, timer}
   let peer = null;
   let left = false;
+  let directFailure = null;         // diagnóstico si no hubo ruta directa con el anfitrión
   let everConnected = false;
 
   const room = {
     get selfId() { return selfId; },
     get usingTurn() { return useTurn; },
+    /** Texto con las rutas (candidatos ICE) del intento directo fallido, o null. */
+    get directFailure() { return directFailure; },
     onPeerJoin: null,
     onPeerLeave: null,
 
@@ -152,13 +155,20 @@ export function createPeerRoom({ appId, code, host, stun, turn = [], forceRelay 
     const id = conn.peer;
     let opened = false;
     const fallback = !host && id === hostId && !useTurn && turn.length > 0 && !everConnected;
-    const timer = setTimeout(() => {
-      if (opened || left) return;
+    let gaveUp = false;
+    const giveUp = async (why) => {
+      if (opened || left || gaveUp) return;
+      gaveUp = true;
+      clearTimeout(timer);
+      const diag = `${why}; ${await iceDetails(conn.peerConnection)}`;
+      console.warn(`[red] sin conexión con ${id}: ${diag}`);
       pending.delete(id);
       conn.close();
-      if (fallback) retryWithTurn();
+      if (fallback) { directFailure = diag; retryWithTurn(); }
       else if (id === hostId || !everConnected) onJoinError({ error: "ice" });
-    }, fallback ? DIRECT_TIMEOUT_MS : CONNECT_TIMEOUT_MS);
+    };
+    const timer = setTimeout(() => giveUp("tiempo agotado"), fallback ? DIRECT_TIMEOUT_MS : CONNECT_TIMEOUT_MS);
+    watchIce(conn, (state) => { if (state === "failed") giveUp("ICE failed"); });
     conn.on("open", () => {
       opened = true;
       clearTimeout(timer);
@@ -177,6 +187,38 @@ export function createPeerRoom({ appId, code, host, stun, turn = [], forceRelay 
     conn.on("data", (msg) => dispatch(id, msg));
     conn.on("close", () => { clearTimeout(timer); drop(id, conn); });
     conn.on("error", () => { /* "close" llega después */ });
+  }
+
+  /** Llama a onState con cada cambio de estado ICE (la RTCPeerConnection aparece al poco). */
+  function watchIce(conn, onState) {
+    let tries = 0;
+    const attach = () => {
+      const pc = conn.peerConnection;
+      if (!pc) { if (tries++ < 50) setTimeout(attach, 100); return; }
+      const report = () => {
+        console.info(`[red] ICE ${conn.peer}: ${pc.iceConnectionState}`);
+        onState(pc.iceConnectionState);
+      };
+      pc.addEventListener("iceconnectionstatechange", report);
+      pc.addEventListener("icecandidateerror", (e) => console.warn("[red] error de candidato ICE", e.url, e.errorCode, e.errorText));
+      report();
+    };
+    attach();
+  }
+
+  /** Rutas encontradas por cada lado (como PortNes): "host/udp, srflx/udp"… */
+  async function iceDetails(pc) {
+    if (!pc) return "sin conexión WebRTC";
+    try {
+      const loc = new Set(), rem = new Set();
+      (await pc.getStats()).forEach((r) => {
+        const d = r.candidateType + (r.protocol ? `/${r.protocol}` : "");
+        if (r.type === "local-candidate") loc.add(d);
+        if (r.type === "remote-candidate") rem.add(d);
+      });
+      return `estado ${pc.iceConnectionState}; rutas propias: ${[...loc].join(", ") || "ninguna"}; ` +
+        `del anfitrión: ${[...rem].join(", ") || "ninguna"}`;
+    } catch { return `estado ${pc.iceConnectionState}`; }
   }
 
   /** Invitado sin ruta directa al anfitrión: vuelve a entrar (id nuevo) con el TURN. */
