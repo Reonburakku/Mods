@@ -9,6 +9,38 @@ import { Lockstep, recommendedDelay } from "./lockstep.js";
 import { LOCAL_LOOPBACK, FORCE_RELAY } from "../config.js";
 
 const APP_ID = "contra4p-netplay-v1";
+// Canal propio para la partida, sin fiabilidad ni orden (como UDP): el lockstep ya
+// repite lo que falta, y un canal fiable se atasca con cualquier pérdida (sobre todo
+// a través de un TURN) y acumula segundos de retraso. Se negocia con un id fijo en la
+// misma conexión de Trystero, sin renegociar.
+const FAST_CHANNEL_ID = 77;
+const RESEND_MS = 50;              // sin novedades: repetir cada 50 ms (pérdidas y confirmaciones)
+const MAX_BUFFERED = 8 * 1024;     // si el canal tiene esto pendiente, no añadir más
+const MSG_IN = 1, MSG_HASH = 2;
+
+/** "in" -> [1, f(4), a(4), v...]; "h" -> [2, f(4), h(4)] */
+function encode(m) {
+  if (m.t === "in") {
+    const b = new Uint8Array(9 + m.v.length);
+    const d = new DataView(b.buffer);
+    b[0] = MSG_IN; d.setUint32(1, m.f); d.setInt32(5, m.a);
+    b.set(m.v, 9);
+    return b;
+  }
+  const b = new Uint8Array(9);
+  const d = new DataView(b.buffer);
+  b[0] = MSG_HASH; d.setUint32(1, m.f); d.setUint32(5, m.h);
+  return b;
+}
+
+function decode(buf) {
+  const b = new Uint8Array(buf);
+  if (b.length < 9) return null;
+  const d = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  if (b[0] === MSG_IN) return { t: "in", f: d.getUint32(1), a: d.getInt32(5), v: [...b.subarray(9)] };
+  if (b[0] === MSG_HASH) return { t: "h", f: d.getUint32(1), h: d.getUint32(5) };
+  return null;
+}
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // sin O/0, I/1
 export const MAX_LOCAL_PLAYERS = 2;
 
@@ -60,6 +92,8 @@ export class NetSession {
     this.lockstep = null;
     this.game = null;               // {slots, delay} al empezar
     this.pings = new Map();         // peerId -> ms
+    this.fast = new Map();          // peerId -> RTCDataChannel sin fiabilidad
+    this.sent = new Map();          // peerId -> {at, upTo, frame}: último envío de entradas
     // callbacks
     this.onLobby = () => {};        // la sala ha cambiado
     this.onStart = () => {};        // empieza la partida
@@ -80,7 +114,7 @@ export class NetSession {
     this.net = this.room.makeAction("game");
     this.ctl.onMessage = (msg, { peerId }) => this.onCtl(peerId, msg);
     this.net.onMessage = (msg, { peerId }) => this.lockstep?.receive(peerId, msg);
-    this.room.onPeerJoin = (peerId) => this.sendHello(peerId);
+    this.room.onPeerJoin = (peerId) => { this.openFast(peerId); this.sendHello(peerId); };
     this.room.onPeerLeave = (peerId) => this.onLeave(peerId);
     this.updateLobby();
     this.pingTimer = setInterval(() => this.measurePings(), 2000);
@@ -112,7 +146,40 @@ export class NetSession {
     }
   }
 
+  /** Abre el canal rápido con un dispositivo (los dos lados lo crean con el mismo id). */
+  openFast(peerId) {
+    if (this.fast.has(peerId)) return;
+    const pc = this.room.getPeers()[peerId];
+    if (!pc) return;
+    try {
+      const ch = pc.createDataChannel("contra4p-fast", {
+        negotiated: true, id: FAST_CHANNEL_ID, ordered: false, maxRetransmits: 0,
+      });
+      ch.binaryType = "arraybuffer";
+      ch.onmessage = (e) => {
+        const msg = decode(e.data);
+        if (msg) this.lockstep?.receive(peerId, msg);
+      };
+      this.fast.set(peerId, ch);
+    } catch (e) {
+      console.warn("Sin canal rápido; se usa el canal fiable:", e);
+    }
+  }
+
+  /** Envía un mensaje de partida: por el canal rápido si está abierto, si no por el fiable. */
+  sendGame(peerId, msg) {
+    const ch = this.fast.get(peerId);
+    if (ch?.readyState === "open") {
+      if (ch.bufferedAmount <= MAX_BUFFERED) ch.send(encode(msg));
+      return;
+    }
+    this.net.send(msg, { target: peerId }).catch(() => {});
+  }
+
   onLeave(peerId) {
+    this.fast.get(peerId)?.close();
+    this.fast.delete(peerId);
+    this.sent.delete(peerId);
     const info = this.peers.get(peerId);
     this.peers.delete(peerId);
     this.pings.delete(peerId);
@@ -185,20 +252,34 @@ export class NetSession {
   }
 
   // ------------------------------------------------------------------ partida
-  /** Envía las entradas pendientes y, si lo hay, un hash. */
+  /**
+   * Envía las entradas pendientes y, si lo hay, un hash. Se llama en cada vuelta del
+   * bucle (60-144 veces por segundo), pero solo envía a cada dispositivo cuando hay
+   * algo nuevo (entrada local o confirmación) y como mucho una vez por fotograma;
+   * sin novedades, repite cada RESEND_MS para recuperar pérdidas.
+   */
   flush(hashMsg = null) {
+    const ls = this.lockstep;
+    const now = performance.now();
     // solo a los dispositivos que siguen conectados (tras una desconexión no hay a quién enviar)
-    for (const [peer, m] of this.lockstep.outgoing()) {
-      if (this.peers.has(peer)) this.net.send(m, { target: peer }).catch(() => {});
+    for (const [peer, m] of ls.outgoing()) {
+      if (!this.peers.has(peer)) continue;
+      if (!this.fast.has(peer)) this.openFast(peer);
+      const last = this.sent.get(peer);
+      const fresh = !last || ls.lastLocal !== last.upTo || ls.received[peer] !== last.ack;
+      const sameFrame = last && last.frame === ls.frame;
+      if (last && (sameFrame || !fresh) && now - last.at < RESEND_MS) continue;
+      this.sendGame(peer, m);
+      this.sent.set(peer, { at: now, upTo: ls.lastLocal, ack: ls.received[peer], frame: ls.frame });
     }
-    const live = this.lockstep.peers.filter((p) => this.peers.has(p));
-    if (hashMsg && live.length) this.net.send(hashMsg, { target: live }).catch(() => {});
+    if (hashMsg) for (const p of ls.peers) if (this.peers.has(p)) this.sendGame(p, hashMsg);
   }
 
   nameOf(peerId) { return this.peers.get(peerId)?.name ?? "?"; }
 
   leave() {
     clearInterval(this.pingTimer);
+    for (const ch of this.fast.values()) ch.close();
     this.room.leave().catch(() => {});
   }
 }
