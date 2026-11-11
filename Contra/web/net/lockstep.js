@@ -179,5 +179,7 @@ export function ramHash(mem) {
  */
 export function recommendedDelay(rttMs, jitterMs = 0) {
   const frameMs = 1000 / 60.0988;
-  return Math.min(12, Math.max(2, Math.ceil((rttMs / 2 + jitterMs) / frameMs) + 1));
+  // Hasta 30 fotogramas (0,5 s): a través de un TURN lento es mejor jugar fluido con más
+  // retardo que a tirones esperando entradas que todavía no han llegado.
+  return Math.min(30, Math.max(2, Math.ceil((rttMs / 2 + jitterMs) / frameMs) + 1));
 }
