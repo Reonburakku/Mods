@@ -93,6 +93,7 @@ export class NetSession {
     this.game = null;               // {slots, delay} al empezar
     this.pings = new Map();         // peerId -> ms
     this.fast = new Map();          // peerId -> RTCDataChannel sin fiabilidad
+    this.links = new Map();         // peerId -> {relay, rtt}: ruta real de la conexión
     this.sent = new Map();          // peerId -> {at, upTo, frame}: último envío de entradas
     // callbacks
     this.onLobby = () => {};        // la sala ha cambiado
@@ -104,6 +105,10 @@ export class NetSession {
       appId: APP_ID,
       password: code,
       turnConfig: turn,
+      // Todas las rutas (candidatos ICE) dentro de la oferta, en un solo mensaje. Con
+      // candidatos sueltos ("trickle"), los relays de Nostr pueden perder o frenar alguno
+      // y entonces los navegadores no encuentran la ruta directa aunque exista.
+      trickleIce: false,
       rtcConfig: FORCE_RELAY ? { iceTransportPolicy: "relay" } : undefined,
       // opción interna de Trystero 0.26 (vendor fijado): candidatos "*.local" -> 127.0.0.1
       _test_only_mdnsHostFallbackToLoopback: LOCAL_LOOPBACK,
@@ -146,6 +151,29 @@ export class NetSession {
     }
   }
 
+  /**
+   * Ruta que usa la conexión con un dispositivo, según las estadísticas de WebRTC:
+   * relay = pasa por el servidor TURN; rtt = ida y vuelta en ms (null si no se sabe).
+   */
+  async linkInfo(peerId) {
+    const pc = this.room.getPeers()[peerId];
+    if (!pc?.getStats) return null;
+    try {
+      const stats = await pc.getStats();
+      let pair = null;
+      stats.forEach((r) => {
+        if (r.type === "transport" && r.selectedCandidatePairId) pair = stats.get(r.selectedCandidatePairId);
+      });
+      if (!pair) stats.forEach((r) => { if (r.type === "candidate-pair" && r.nominated && r.state === "succeeded") pair = r; });
+      if (!pair) return null;
+      const local = stats.get(pair.localCandidateId), remote = stats.get(pair.remoteCandidateId);
+      return {
+        relay: local?.candidateType === "relay" || remote?.candidateType === "relay",
+        rtt: pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null,
+      };
+    } catch { return null; }
+  }
+
   /** Abre el canal rápido con un dispositivo (los dos lados lo crean con el mismo id). */
   openFast(peerId) {
     if (this.fast.has(peerId)) return;
@@ -183,6 +211,7 @@ export class NetSession {
     const info = this.peers.get(peerId);
     this.peers.delete(peerId);
     this.pings.delete(peerId);
+    this.links.delete(peerId);
     if (this.lockstep && this.game.slots[peerId]) this.onPeerLeft(peerId, info?.name ?? "?");
     if (peerId === this.hostId && !this.lockstep) this.onError("El anfitrión ha cerrado la sala.");
     this.updateLobby();
@@ -198,7 +227,7 @@ export class NetSession {
       const romOk = d.sha1 === this.me.sha1;
       const slots = [];
       for (let i = 0; i < d.local && romOk && next < this.maxPlayers; i++) slots.push(next++);
-      return { ...d, host: d.id === this.hostId, romOk, slots, ping: this.pings.get(d.id) };
+      return { ...d, host: d.id === this.hostId, romOk, slots, ping: this.pings.get(d.id), link: this.links.get(d.id) };
     });
     this.onLobby(this.players);
   }
@@ -218,6 +247,8 @@ export class NetSession {
       try {
         this.pings.set(id, await this.room.ping(id));
       } catch { /* desconectado */ }
+      const link = await this.linkInfo(id);
+      if (link) this.links.set(id, link);
     }
     if (!this.lockstep) this.updateLobby();
   }
