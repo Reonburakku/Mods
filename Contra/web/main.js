@@ -195,7 +195,11 @@ function renderLobby(players) {
     name.textContent = p.name + (p.self ? " (tú)" : "");
     const tag = document.createElement("span");
     tag.className = "tag";
-    tag.textContent = [p.host ? "anfitrión" : "", p.ping != null ? `${p.ping} ms` : ""].filter(Boolean).join(" · ");
+    const route = p.link ? (p.link.relay ? "por relay" : "directa") : "";
+    tag.textContent = [p.host ? "anfitrión" : "", route, p.ping != null ? `${p.ping} ms` : ""].filter(Boolean).join(" · ");
+    if (p.link) tag.title = p.link.relay
+      ? "La conexión pasa por el servidor TURN: la conexión directa no fue posible en esta red."
+      : "Conexión directa entre los dos navegadores.";
     const slots = document.createElement("span");
     slots.className = p.romOk ? "slots" : "slots bad";
     slots.textContent = !p.romOk ? `ROM distinta (v${p.version ?? "?"})`
@@ -360,7 +364,8 @@ function tick(now) {
     if (session?.lockstep) {
       const ls = session.lockstep;
       const pings = [...session.pings.values()];
-      if (pings.length) parts.unshift(`ping ${Math.max(...pings)} ms · retardo ${ls.delay}`);
+      const viaRelay = [...session.links.values()].some((l) => l.relay);
+      if (pings.length) parts.unshift(`ping ${Math.max(...pings)} ms${viaRelay ? " (relay)" : ""} · retardo ${ls.delay}`);
       parts.unshift(`tú: ${ls.localSlots.map((s) => `J${s + 1}`).join("+")}`);
       if (ls.desyncFrame !== null) parts.unshift(`⚠ desincronizado (f${ls.desyncFrame})`);
     }
