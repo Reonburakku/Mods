@@ -6,11 +6,17 @@
 // - El anfitrión se registra con un id derivado del código de sala; los demás se conectan
 //   a él y el anfitrión les pasa la lista de miembros. Entre invitados llama el de id menor,
 //   así no hay conexiones duplicadas.
+// - Primero se intenta la conexión directa SIN servidor TURN (como PortNes): si el
+//   navegador tiene un TURN desde el principio puede quedarse con la ruta del relay
+//   (cientos de ms) aunque haya una directa. Solo si un invitado no consigue conectar
+//   con el anfitrión en DIRECT_TIMEOUT_MS, vuelve a entrar con el TURN. Basta con que
+//   un lado tenga la ruta del relay, así que el anfitrión no lo necesita.
 // - Expone lo que usa la sala (session.js): selfId, makeAction, ping, getPeers,
 //   onPeerJoin/onPeerLeave y leave.
 
 const SCRIPT_URL = new URL("./vendor/peerjs/peerjs.min.js", import.meta.url);
 const CONNECT_TIMEOUT_MS = 20000;
+const DIRECT_TIMEOUT_MS = 8000;   // sin conexión directa en este tiempo: reintentar con TURN
 const PING_TIMEOUT_MS = 5000;
 const MAX_BUFFERED = 1024 * 1024;
 
@@ -36,12 +42,19 @@ function randomId(n = 10) {
  * @param {string} o.appId       prefijo único de la aplicación (ids en el servidor público)
  * @param {string} o.code        código de sala
  * @param {boolean} o.host       true si este dispositivo crea la sala
- * @param {RTCConfiguration} o.rtcConfig  servidores STUN/TURN, política de ICE…
+ * @param {RTCIceServer[]} o.stun       servidores STUN (ruta directa)
+ * @param {RTCIceServer[]} o.turn       servidores TURN (último recurso)
+ * @param {boolean} o.forceRelay        diagnóstico: todo por el TURN desde el principio
  * @param {(e: {error: string}) => void} o.onJoinError  "no-room" | "room-taken" | "signaling" | "ice" | otro texto
  */
-export function createPeerRoom({ appId, code, host, rtcConfig, onJoinError = () => {} }) {
+export function createPeerRoom({ appId, code, host, stun, turn = [], forceRelay = false, onJoinError = () => {} }) {
   const hostId = `${appId}-${code}`.toLowerCase();
-  const selfId = host ? hostId : `${hostId}-${randomId()}`;
+  let selfId = host ? hostId : `${hostId}-${randomId()}`;
+  let useTurn = forceRelay && turn.length > 0;     // fase actual: directa o con TURN
+  const rtcConfig = () => ({
+    iceServers: [...stun, ...(useTurn ? turn : [])],
+    ...(forceRelay ? { iceTransportPolicy: "relay" } : {}),
+  });
   const conns = new Map();          // peerId -> DataConnection abierta
   const pending = new Map();        // peerId -> DataConnection conectando
   const actions = new Map();        // nombre -> {onMessage}
@@ -51,7 +64,8 @@ export function createPeerRoom({ appId, code, host, rtcConfig, onJoinError = () 
   let everConnected = false;
 
   const room = {
-    selfId,
+    get selfId() { return selfId; },
+    get usingTurn() { return useTurn; },
     onPeerJoin: null,
     onPeerLeave: null,
 
@@ -137,12 +151,14 @@ export function createPeerRoom({ appId, code, host, rtcConfig, onJoinError = () 
   function setup(conn) {
     const id = conn.peer;
     let opened = false;
+    const fallback = !host && id === hostId && !useTurn && turn.length > 0 && !everConnected;
     const timer = setTimeout(() => {
       if (opened || left) return;
       pending.delete(id);
       conn.close();
-      if (id === hostId || !everConnected) onJoinError({ error: "ice" });
-    }, CONNECT_TIMEOUT_MS);
+      if (fallback) retryWithTurn();
+      else if (id === hostId || !everConnected) onJoinError({ error: "ice" });
+    }, fallback ? DIRECT_TIMEOUT_MS : CONNECT_TIMEOUT_MS);
     conn.on("open", () => {
       opened = true;
       clearTimeout(timer);
@@ -163,15 +179,26 @@ export function createPeerRoom({ appId, code, host, rtcConfig, onJoinError = () 
     conn.on("error", () => { /* "close" llega después */ });
   }
 
+  /** Invitado sin ruta directa al anfitrión: vuelve a entrar (id nuevo) con el TURN. */
+  function retryWithTurn() {
+    if (left || useTurn) return;
+    console.info("Sin conexión directa con el anfitrión: se reintenta con el servidor TURN.");
+    useTurn = true;
+    peer.destroy();
+    selfId = `${hostId}-${randomId()}`;
+    startPeer();
+  }
+
   function connectTo(id) {
     const conn = peer.connect(id, { reliable: true, serialization: "json", metadata: { room: hostId } });
     pending.set(id, conn);
     setup(conn);
   }
 
-  loadPeerJS().then((Peer) => {
-    if (left) return;
-    peer = new Peer(selfId, { config: rtcConfig, debug: 1 });
+  let PeerClass = null;
+  function startPeer() {
+    const Peer = PeerClass;
+    peer = new Peer(selfId, { config: rtcConfig(), debug: 1 });
     peer.on("open", () => { if (!host) connectTo(hostId); });
     peer.on("connection", (conn) => {
       if (conn.metadata?.room !== hostId) { conn.close(); return; }
@@ -194,6 +221,12 @@ export function createPeerRoom({ appId, code, host, rtcConfig, onJoinError = () 
         onJoinError({ error: e.message || e.type });
       }
     });
+  }
+
+  loadPeerJS().then((Peer) => {
+    if (left) return;
+    PeerClass = Peer;
+    startPeer();
   }).catch((e) => onJoinError({ error: e.message }));
 
   return room;

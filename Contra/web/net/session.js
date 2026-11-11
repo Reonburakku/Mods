@@ -98,13 +98,11 @@ export class NetSession {
       appId: APP_ID,
       code,
       host,
-      rtcConfig: {
-        iceServers: [...STUN_SERVERS, ...turn],
-        ...(FORCE_RELAY ? { iceTransportPolicy: "relay" } : {}),
-      },
+      stun: STUN_SERVERS,
+      turn,
+      forceRelay: FORCE_RELAY,
       onJoinError: (e) => this.onError(connectionHelp(e.error, turn.length > 0)),
     });
-    this.selfId = this.room.selfId;
     this.hostId = host ? this.selfId : null;
     this.peers = new Map();         // peerId -> {name, local, sha1, version}
     this.players = [];              // lista de la sala (la decide el anfitrión)
@@ -129,6 +127,9 @@ export class NetSession {
     this.updateLobby();
     this.pingTimer = setInterval(() => this.measurePings(), 2000);
   }
+
+  /** Id de este dispositivo en la sala (cambia si un invitado reintenta con el TURN antes de entrar). */
+  get selfId() { return this.room.selfId; }
 
   // ------------------------------------------------------------------ sala
   sendHello(target) {
