@@ -82,7 +82,7 @@ El estado de jsnes no sirve tal cual para rollback: guardar tarda casi un fotogr
 ### 3. Transporte (WebRTC sin servidor)
 
 - Los navegadores se conectan directamente entre sí (P2P) mediante WebRTC DataChannel en modo no fiable y desordenado, como UDP, que es lo que conviene para enviar entradas.
-- Para que se encuentren hace falta "señalización". Sin servidor propio se usa la librería **Trystero**, que aprovecha relays públicos (Nostr, MQTT o trackers de BitTorrent) solo para el saludo inicial. Después todo va directo entre jugadores.
+- Para que se encuentren hace falta "señalización". Sin servidor propio se usa **PeerJS** y su servidor público (como PortNes), solo para el saludo inicial. Después todo va directo entre jugadores, o por el servidor TURN de Metered si la red no permite la conexión directa. (Antes se usaba Trystero con relays de Nostr, que perdían rutas y forzaban el relay.)
 - Con 4 dispositivos como máximo, se usa una **malla** (cada uno conectado con todos), que da la latencia más baja.
 - **Limitación:** en algunas redes (NAT simétrico, algunas redes de empresa o móviles) el P2P directo falla y haría falta un servidor TURN. Se deja como configuración opcional: quien tenga uno puede ponerlo, pero la página no depende de él.
 
@@ -170,10 +170,11 @@ Cada fase deja algo jugable.
 1. **Web local.** Descargar la ROM desde Azure Blob (con caché), jugar 1-2 jugadores en un dispositivo (teclado, mando y táctil).
 2. **Netplay con el Contra original.** 2 dispositivos con 1 jugador cada uno. Valida toda la parte de red con un juego que ya funciona, antes de tocar la ROM. ✅ Hecha:
    - `web/net/lockstep.js`: retardo de entrada y reenvío hasta confirmación. Funciona igual con un canal fiable o no.
-   - `web/net/session.js`: sala con Trystero/Nostr. El anfitrión reparte las plazas y elige el retardo con `recommendedDelay()` a partir del ping (mediana y percentil 90).
+   - `web/net/peer-room.js`: malla de hasta 4 navegadores con PeerJS (el anfitrión pasa la lista de miembros y entre invitados llama el de id menor).
+   - `web/net/session.js`: sala sobre esa malla. El anfitrión reparte las plazas y elige el retardo con `recommendedDelay()` a partir del ping (mediana y percentil 90). Las entradas van por un canal propio sin fiabilidad ni orden, en binario.
    - `tests/netplay.mjs`: red simulada (retardo, jitter, pérdidas, relojes desfasados) con 2-4 dispositivos. La RAM es idéntica en todos los casos y el juego va a ~100% de velocidad.
    - Probada con dos pestañas del navegador: los dos dispositivos van a 60 fps sin desincronizaciones.
-   - Requiere `https://` o `localhost`: Trystero usa `crypto.subtle`.
+   - Requiere `https://` o `localhost` (WebRTC y la verificación de la ROM).
    - Con la pestaña oculta, un Worker mantiene el bucle para no bloquear a los demás.
    - Pendiente para la fase 5: recuperación tras desincronización o desconexión (ahora solo se avisa).
 3. **ROM para 4 jugadores**, probada en local con 4 mandos simulados en las pruebas de Node.

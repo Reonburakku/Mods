@@ -71,11 +71,7 @@ export async function loadTurnServers() {
   }
 }
 
-// En pruebas locales (dos pestañas en el mismo equipo) el navegador oculta la IP
-// local con un nombre "xxxx.local" (mDNS) que Windows a menudo no resuelve.
-// Con la página en localhost esos nombres se sustituyen por 127.0.0.1.
 // Overclock del emulador (líneas extra de VBlank). Por defecto el que recomienda el
 // manifiesto de la ROM; ?overclock=N lo cambia (en red manda el del anfitrión).
 export const OVERCLOCK_OVERRIDE = params.has("overclock") ? Number(params.get("overclock")) | 0 : null;
 
-export const LOCAL_LOOPBACK = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
